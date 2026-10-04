@@ -1,10 +1,12 @@
+import { existsSync } from 'node:fs';
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Database } from './database.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-export const MIGRATIONS_DIR = path.resolve(here, '../../migrations');
+// Works from source (src/db) and from the build output (dist/server/src/db).
+export const MIGRATIONS_DIR = [path.resolve(here, '../../migrations'), path.resolve(here, '../../../../migrations')].find((candidate) => existsSync(candidate)) ?? path.resolve(here, '../../migrations');
 
 /** Applies migrations/NNN_name.sql in order. Forward-only; applied files are never re-run. */
 export async function migrate(db: Database): Promise<string[]> {

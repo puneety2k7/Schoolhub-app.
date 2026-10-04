@@ -3,3 +3,5 @@ dist/
 .env
 *.log
 e2e/.artifacts/
+v2.config.env
+.run/

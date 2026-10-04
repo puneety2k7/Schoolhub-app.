@@ -8,6 +8,8 @@
     "build": "tsc -p tsconfig.json && node -e \"require('fs').writeFileSync('dist/package.json','{\\\"type\\\":\\\"module\\\"}')\"",
     "start": "node dist/server/src/main.js",
     "migrate": "tsx src/db/migrate-cli.ts",
+    "migrate:built": "node dist/server/src/db/migrate-cli.js",
+    "check-db": "node dist/server/src/db/check-cli.js",
     "test": "vitest run --maxWorkers=1 --fileParallelism=false"
   },
   "dependencies": {
