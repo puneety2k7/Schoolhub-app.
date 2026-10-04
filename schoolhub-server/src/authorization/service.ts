@@ -1,7 +1,7 @@
 import type { Queryable } from '../database/types.js';
 import { deny } from '../errors/api-error.js';
 import { permissionContract } from './policy-registry.js';
-export type Principal={userId:string;schoolId:string;roleId:string;roleName:string;systemRecovery?:boolean;teacherId:string|null;studentId?:string|null;guardianId?:string|null;permissions:string[];username:string;accessControlMode?:string};
+export type Principal={userId:string;schoolId:string;roleId:string;roleName:string;systemRecovery?:boolean;teacherId:string|null;studentId?:string|null;guardianId?:string|null;permissions:string[];username:string};
 export function requirePermission(p:Principal,permission:string){
   if(!permissionContract(permission))throw deny('UNREGISTERED_PERMISSION');
   if(p.systemRecovery===true||p.permissions.includes(permission))return;

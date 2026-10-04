@@ -17,7 +17,7 @@ export async function authenticate(req:FastifyRequest,db:Queryable,config:AppCon
   if(csrf){const supplied=String(req.headers['x-csrf-token']||'');if(!supplied||digest(supplied)!==row.csrf_hash)throw new ApiError('CSRF_VALIDATION_FAILED','The request could not be verified.',403);}
 
   const guardian=await db.query<any>('SELECT guardian_id FROM user_guardian_links WHERE user_id=$1 AND school_id=$2',[row.user_id,row.school_id]);
-  const base={userId:row.user_id,schoolId:row.school_id,roleId:row.role_id,roleName:row.role_name,systemRecovery:row.role_system===true,teacherId:row.teacher_id||null,studentId:row.student_id||null,guardianId:guardian.rows[0]?.guardian_id||null,username:row.username,permissions:[] as string[]};const effective=await permissionsForUser(db,base);const principal={...base,permissions:effective.permissions,accessControlMode:effective.mode};
+  const base={userId:row.user_id,schoolId:row.school_id,roleId:row.role_id,roleName:row.role_name,systemRecovery:row.role_system===true,teacherId:row.teacher_id||null,studentId:row.student_id||null,guardianId:guardian.rows[0]?.guardian_id||null,username:row.username,permissions:[] as string[]};const effective=await permissionsForUser(db,base);const principal={...base,permissions:effective.permissions};
   req.principal=principal;req.sessionToken=token;req.sessionCsrfHash=row.csrf_hash;await db.query('UPDATE sessions SET last_seen_at=CURRENT_TIMESTAMP WHERE id_hash=$1',[row.id_hash]);return principal;
 }
 export function setSessionCookie(reply:FastifyReply,config:AppConfig,token:string,expires:Date){reply.setCookie(config.cookieName,token,{httpOnly:true,secure:config.nodeEnv==='production',sameSite:'strict',path:'/',expires});}

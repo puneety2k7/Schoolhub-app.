@@ -1,6 +1,6 @@
 import {describe,expect,it} from 'vitest';
 import {grantMatches,LEGACY_RUNTIME_AUTHORIZATION_ENABLED,type EffectiveGrant,type RecordSecurityContext} from '../../src/authorization/policy-engine.js';
-import {legacyAccessSelectionToGrants,serverPermissionKeysForGrant,validateGrantDefinition,workspaceManifest} from '../../src/authorization/policy-registry.js';
+import {serverPermissionKeysForGrant,validateGrantDefinition,workspaceManifest} from '../../src/authorization/policy-registry.js';
 import {permissionsForUser} from '../../src/authorization/access-control.js';
 import {requirePermission,type Principal} from '../../src/authorization/service.js';
 
@@ -11,7 +11,6 @@ const relationships={groupIds:new Set<string>(),classIds:new Set(['c1']),section
 
 describe('central authorization policy',()=>{
  it('publishes a typed manifest and fails closed for unknown combinations',()=>{expect(workspaceManifest('homework').map(x=>x.resourceType)).toContain('homework');expect(validateGrantDefinition('homework','homework','record.view','ASSIGNED_TEACHING_CONTEXT')).toBe(true);expect(validateGrantDefinition('homework','unknown','record.view','CLASS')).toBe(false);expect(validateGrantDefinition('unknown','homework','record.view','CLASS')).toBe(false)});
- it('converts legacy role selections only into complete action plus scope grants',()=>{expect(legacyAccessSelectionToGrants('homework',['View Records'])).toEqual([]);const grants=legacyAccessSelectionToGrants('homework',['View Records','View All Workspace Records']);expect(grants.some(x=>x.resourceType==='homework'&&x.action==='record.view'&&x.scope==='ALL_WORKSPACE')).toBe(true);expect(grants.every(x=>x.action&&x.scope)).toBe(true)});
  it('keeps class and section audiences exact',()=>{expect(grantMatches(baseGrant,principal,baseRecord,relationships as any)).toBe(true);expect(grantMatches({...baseGrant,scope:'SECTION'},principal,baseRecord,relationships as any)).toBe(false);expect(grantMatches({...baseGrant,scope:'SECTION'},principal,{...baseRecord,audienceType:'SECTION'},relationships as any)).toBe(true)});
  it('requires one composite teaching assignment',()=>{const grant={...baseGrant,scope:'ASSIGNED_TEACHING_CONTEXT' as const};expect(grantMatches(grant,principal,baseRecord,relationships as any)).toBe(true);const split={...relationships,assignments:[{academicYearId:'y1',classId:'c1',sectionId:'other',subjectId:'sub1'},{academicYearId:'y1',classId:'other',sectionId:'sec1',subjectId:'sub1'}]};expect(grantMatches(grant,principal,baseRecord,split as any)).toBe(false)});
  it('does not let ALL_WORKSPACE bypass lifecycle and sensitivity constraints',()=>{const grant={...baseGrant,scope:'ALL_WORKSPACE' as const};expect(grantMatches(grant,principal,{...baseRecord,lifecycle:'Archived'},relationships as any)).toBe(false);expect(grantMatches({...grant,constraints:{viewArchived:true}},principal,{...baseRecord,lifecycle:'Archived'},relationships as any)).toBe(true);expect(grantMatches(grant,principal,{...baseRecord,sensitivity:'Confidential'},relationships as any)).toBe(false)});

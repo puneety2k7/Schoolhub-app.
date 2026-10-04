@@ -5,23 +5,8 @@ import { ApiError } from '../errors/api-error.js';
 import { serverPermissionKeysForGrant,workspaceManifest,type AuthorizationAction } from './policy-registry.js';
 import { getCapabilities,type RecordSecurityContext } from './policy-engine.js';
 export const ACCESS_ROLES=['View Records','Add Records','Edit Records','Delete Records','Permanent Delete Records','Print Records','View Attachments','Add Attachments','View Change Log','Run Imports','Setup Administration','View Own Records','View Assigned Records','View Group Records','View Class Records','View Section Records','View Audience Records','View All Workspace Records'] as const;
-export type AccessRole=typeof ACCESS_ROLES[number]; export type AccessMode='Off'|'Preview'|'Audit'|'Enforced'|'Rollback';
+export type AccessRole=typeof ACCESS_ROLES[number];
 export const AUDIENCE_TYPES=['Private','Selected groups','Selected individuals','Class','Section','Entire workspace','Global'] as const;
-export async function accessMode(db:Queryable,schoolId:string):Promise<AccessMode>{return (await db.query<any>('SELECT mode FROM access_control_settings WHERE school_id=$1',[schoolId])).rows[0]?.mode||'Off'}
-export async function effectiveRoles(db:Queryable,schoolId:string,userId:string,workspaceId:string){
- const rows=(await db.query<any>(`SELECT DISTINCT arg.action_key AS action,arg.scope_key AS scope,g.id AS "groupId",g.name AS "groupName",ar.id AS "namedRoleId",ar.name AS "namedRoleName"
-  FROM access_group_memberships gm
-  JOIN access_groups g ON g.id=gm.group_id AND g.school_id=gm.school_id AND g.active=true
-  JOIN access_group_roles agr ON agr.group_id=g.id AND agr.school_id=g.school_id
-  JOIN access_roles ar ON ar.id=agr.role_id AND ar.school_id=g.school_id AND ar.status='Active'
-  JOIN access_role_grants arg ON arg.role_id=ar.id AND arg.school_id=ar.school_id
-  WHERE gm.school_id=$1 AND gm.user_id=$2 AND ar.workspace_id=$3`,[schoolId,userId,workspaceId])).rows;
- const actionRoles:Record<string,AccessRole>={'record.view':'View Records','record.create':'Add Records','record.update':'Edit Records','record.archive':'Delete Records','record.permanent_delete':'Permanent Delete Records','record.print':'Print Records','attachment.view':'View Attachments','attachment.download':'View Attachments','attachment.upload':'Add Attachments','audit.view':'View Change Log'};
- const scopeRoles:Record<string,AccessRole>={OWNED:'View Own Records',DIRECT_ASSIGNED:'View Assigned Records',GROUP:'View Group Records',CLASS:'View Class Records',SECTION:'View Section Records',AUDIENCE:'View Audience Records',ALL_WORKSPACE:'View All Workspace Records'};
- const out=new Map<string,any>();
- for(const row of rows)for(const roleKey of [actionRoles[row.action],scopeRoles[row.scope]].filter(Boolean) as AccessRole[])out.set(roleKey+'|'+row.groupId+'|'+row.namedRoleId,{...row,roleKey});
- return [...out.values()].sort((a,b)=>String(a.roleKey).localeCompare(String(b.roleKey))||String(a.groupName).localeCompare(String(b.groupName)));
-}
 export async function hasSetupAdministration(db:Queryable,p:Principal){return !!(await db.query('SELECT 1 FROM access_group_memberships gm JOIN access_groups g ON g.id=gm.group_id JOIN access_group_global_roles ggr ON ggr.group_id=g.id AND ggr.school_id=g.school_id WHERE gm.school_id=$1 AND gm.user_id=$2 AND g.active=true AND ggr.role_key=$3 LIMIT 1',[p.schoolId,p.userId,'Setup Administration'])).rows[0]}
 export async function requireSetupAdministration(db:Queryable,p:Principal){if(p.systemRecovery===true)return;if(await hasSetupAdministration(db,p))return;throw new ApiError('SETUP_ADMINISTRATION_REQUIRED','Setup Administration is required.',403)}export async function ensureLegacyMigration():Promise<never>{throw new ApiError('LEGACY_AUTHORIZATION_DISABLED','Legacy permission migration is disabled. Use Groups, named Workspace Roles, and normalized grants.',409)}
 export type AudienceInput={audienceType:typeof AUDIENCE_TYPES[number];ownerUserId?:string|null;assignedUserId?:string|null;classId?:string|null;sectionId?:string|null;groupIds?:string[];userIds?:string[]};
@@ -40,8 +25,8 @@ export async function previewRecordAccess(db:Queryable,p:Principal,workspaceId:s
  return{allowed,reason:allowed?'CENTRAL_GRANT_MATCHED':'NO_COMPLETE_GRANT',matchedRoles:[],grants:[],audienceType:record.audience_type};
 }export async function assertRecordAccess(db:Queryable,p:Principal,workspaceId:string,recordId:string){const result=await previewRecordAccess(db,p,workspaceId,recordId);if(!result.allowed)throw new ApiError(result.reason,'Record access is denied.',403,result);return result}
 export async function permissionsForUser(db:Queryable,p:Pick<Principal,'schoolId'|'userId'|'roleName'|'systemRecovery'|'permissions'>){
- const mode=await accessMode(db,p.schoolId),system=p.systemRecovery===true;
- if(system){const out=new Set<string>(),workspaces=(await db.query<any>("SELECT workspace_key AS key FROM workspace_definitions WHERE school_id=$1 AND status<>'Archived'",[p.schoolId])).rows;for(const {key} of workspaces)for(const action of ['view','create','update','delete','manage','print','permanent-delete'])out.add(key+':'+action);for(const permission of ['school:read','school:manage','core:manage','users:view','users:manage','imports:manage','audit:view','diagnostics:view','diagnostics:export','portal:manage','portal:admin','workspaces:view','workspaces:configure','workspaces:create','workspaces:archive','workspaces:reset'])out.add(permission);return{mode,permissions:[...out].sort(),authority:'SYSTEM_RECOVERY_ROLE' as const}}
+ const system=p.systemRecovery===true;
+ if(system){const out=new Set<string>(),workspaces=(await db.query<any>("SELECT workspace_key AS key FROM workspace_definitions WHERE school_id=$1 AND status<>'Archived'",[p.schoolId])).rows;for(const {key} of workspaces)for(const action of ['view','create','update','delete','manage','print','permanent-delete'])out.add(key+':'+action);for(const permission of ['school:read','school:manage','core:manage','users:view','users:manage','imports:manage','audit:view','diagnostics:view','diagnostics:export','portal:manage','portal:admin','workspaces:view','workspaces:configure','workspaces:create','workspaces:archive','workspaces:reset'])out.add(permission);return{permissions:[...out].sort(),authority:'SYSTEM_RECOVERY_ROLE' as const}}
  const grants=(await db.query<any>(`SELECT w.workspace_key AS "workspaceKey",arg.resource_type AS "resourceType",arg.action_key AS action,arg.scope_key AS scope
    FROM access_group_memberships gm
    JOIN access_groups g ON g.id=gm.group_id AND g.school_id=gm.school_id AND g.active=true
@@ -53,7 +38,7 @@ export async function permissionsForUser(db:Queryable,p:Pick<Principal,'schoolId
  const out=new Set<string>();for(const grant of grants)for(const permission of serverPermissionKeysForGrant(grant.workspaceKey,grant.resourceType,grant.action as AuthorizationAction))out.add(permission);
  const setup=!!(await db.query("SELECT 1 FROM access_group_memberships gm JOIN access_groups g ON g.id=gm.group_id AND g.active=true JOIN access_group_global_roles ggr ON ggr.group_id=g.id AND ggr.school_id=g.school_id WHERE gm.school_id=$1 AND gm.user_id=$2 AND ggr.role_key='Setup Administration' LIMIT 1",[p.schoolId,p.userId])).rows[0];
  if(setup)for(const permission of ['users:view','users:manage','audit:view','diagnostics:view','diagnostics:export','portal:manage','school:read','school:manage','reports:view','reports:print','workflows:view','workflows:manage','workspaces:view','workspaces:configure','workspaces:create','workspaces:archive','workspaces:reset'])out.add(permission);
- return{mode,permissions:[...out].sort(),authority:'GROUP_ROLE_GRANT' as const};
+ return{permissions:[...out].sort(),authority:'GROUP_ROLE_GRANT' as const};
 }export async function enforceRecordPayload(db:Queryable,p:Principal,workspaceKey:string,payload:any){
  const workspace=(await db.query<any>('SELECT id FROM workspace_definitions WHERE school_id=$1 AND workspace_key=$2 AND status<>$3',[p.schoolId,workspaceKey,'Archived'])).rows[0];
  if(!workspace)throw new ApiError('WORKSPACE_ACCESS_NOT_CONFIGURED','Centralized access is not configured for this workspace.',403);
