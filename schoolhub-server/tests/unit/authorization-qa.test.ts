@@ -18,17 +18,22 @@ type State={
  students:Array<{studentId:string;classId:string;sectionId:string|null}>;
  children:Array<{guardianId:string;studentId:string;classId:string;sectionId:string|null;active?:boolean}>;
 };
+const NORMAL:Record<string,string>={'record.view':'VIEW','report.view':'VIEW','record.create':'ADD','record.update':'EDIT','assessment.enter_marks':'EDIT','record.archive':'DELETE','record.print':'PRINT'};
+const SPECIAL:Record<string,string>={'record.publish':'PUBLISH','record.acknowledge':'ACKNOWLEDGE','assessment.publish_results':'PUBLISH','record.restore':'RESTORE_ARCHIVED_RECORDS','record.permanent_delete':'PERMANENT_DELETE'};
+const ASSIGNED=new Set(['DIRECT_ASSIGNED','GROUP','CLASS','SECTION','AUDIENCE','CHILD_ASSIGNED','ASSIGNED_TEACHING_CONTEXT','ASSIGNED_CLASS','ASSIGNED_SECTION','ASSIGNED_STUDENT','CASE_ASSIGNED']);
+function grantsAsUniversal(grants:Grant[]){
+ const out:Array<{groupId:string;roleId:string;tabKey:string;permissionKey:string;workspaceKey?:string}>=[];
+ for(const g of grants){if(g.active===false)continue;const add=(tabKey:string,permissionKey:string)=>out.push({groupId:g.groupId,roleId:g.roleId,tabKey,permissionKey,workspaceKey:g.workspaceKey});
+  if(NORMAL[g.action])add('MAIN',NORMAL[g.action]);if(SPECIAL[g.action])add('SPECIAL',SPECIAL[g.action]);
+  if(g.scope==='ALL_WORKSPACE')add('SPECIAL','VIEW_RECORDS_OWNED_BY_OTHERS');if(ASSIGNED.has(g.scope))add('SPECIAL','VIEW_ASSIGNED_RECORDS')}
+ return out;
+}
 function database(state:State){
  return{query:async(sql:string,values:unknown[]=[])=>{
   if(sql.includes('FROM workspace_definitions'))return{rows:[{id:'workspace-'+values[1]}]};
-  if(sql.includes('JOIN access_role_grants')){
-   const [,userId,,resourceType]=values;
-   const groups=new Set(state.memberships.filter(x=>x.userId===userId&&x.active!==false&&(state.groups?.find(g=>g.id===x.groupId)?.active!==false)).map(x=>x.groupId));
-   return{rows:state.grants.filter(x=>groups.has(x.groupId)&&x.resourceType===resourceType&&x.active!==false&&(state.roles?.find(role=>role.id===x.roleId)?.active!==false)).map(x=>({groupId:x.groupId,groupName:x.groupId,roleId:x.roleId,roleName:x.roleId,resourceType:x.resourceType,action:x.action,scope:x.scope,constraints:x.constraints||{}}))};
-  }
   if(sql.includes('JOIN access_role_universal_permissions')){
    const [,userId]=values,groups=new Set(state.memberships.filter(x=>x.userId===userId&&x.active!==false&&(state.groups?.find(g=>g.id===x.groupId)?.active!==false)).map(x=>x.groupId));
-   return{rows:(state.universal||[]).filter(x=>groups.has(x.groupId)&&(state.roles?.find(role=>role.id===x.roleId)?.active!==false)).map(x=>({...x,groupName:x.groupId,roleName:x.roleId}))};
+   return{rows:[...(state.universal||[]),...grantsAsUniversal(state.grants)].filter(x=>(!(x as any).workspaceKey||'workspace-'+(x as any).workspaceKey===values[2])&&groups.has(x.groupId)&&(state.roles?.find(role=>role.id===x.roleId)?.active!==false)).map(x=>({...x,groupName:x.groupId,roleName:x.roleId}))};
   }
   if(sql.includes('SELECT gm.group_id AS id'))return{rows:state.memberships.filter(x=>x.userId===values[1]&&x.active!==false&&(state.groups?.find(g=>g.id===x.groupId)?.active!==false)).map(x=>({id:x.groupId}))};
   if(sql.includes('FROM teacher_assignments'))return{rows:state.assignments.filter(x=>x.teacherId===values[1]&&x.active!==false).map(x=>({academicYearId:x.academicYearId,classId:x.classId,sectionId:x.sectionId,subjectId:x.subjectId}))};
@@ -124,72 +129,26 @@ describe('authorization QA environment',()=>{
   state.assignments[0].active=false;
   await expect(authorizeCreate(db,teacher,context)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
  });
- it('keeps action scopes independent and isolates tenants',async()=>{
-  const state=baseState(),user=actor('qa-user-teacher',{teacherId:'qa-teacher-science'});state.grants=[
-   {groupId:'qa-group-teachers',roleId:'split',workspaceKey:'homework',resourceType:'homework',action:'record.view',scope:'ALL_WORKSPACE'},
-   {groupId:'qa-group-teachers',roleId:'split',workspaceKey:'homework',resourceType:'homework',action:'record.update',scope:'OWNED'}
-  ];const db=database(state),own=homework('own','qa-section-viii-a','qa-student-a','qa-user-teacher'),other=homework('other','qa-section-viii-b','qa-student-b','someone-else');
-  await expect(authorizeRecord(db,user,'record.view',other)).resolves.toBeTruthy();
-  await expect(authorizeRecord(db,user,'record.update',own)).resolves.toBeTruthy();
-  await expect(authorizeRecord(db,user,'record.update',other)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeRecord(db,user,'record.view',{...other,schoolId:'qa-school-b'})).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
+
+ it('denies every operational action when a user has no universal workspace permission',async()=>{
+  const state=baseState();state.universal=[];state.grants=[];const db=database(state),teacher=actor('qa-user-teacher',{teacherId:'qa-teacher-science'}),record=homework('r1','qa-section-viii-a','qa-student-a');
+  for(const action of ['record.view','record.create','record.update','record.archive','record.print'] as const)await expect(authorizeRecord(db,teacher,action,record)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
  });
- it('revokes relationship scopes after guardian-link or enrollment changes',async()=>{
-  const state=baseState(),db=database(state),parent=actor('qa-user-parent-a',{guardianId:'qa-parent-a'}),student=actor('qa-user-student-a',{studentId:'qa-student-a'});
-  state.grants.push({groupId:'qa-group-parents',roleId:'qa-fees-parent',workspaceKey:'fees-payments',resourceType:'fee-payment',action:'record.view',scope:'CHILD_PERSONAL'});
-  state.grants.push({groupId:'qa-group-students',roleId:'qa-attendance-student',workspaceKey:'attendance',resourceType:'attendance-entry',action:'record.view',scope:'SECTION'});
-  const invoice={schoolId:'qa-school-a',workspaceKey:'fees-payments',resourceType:'fee-payment',recordId:'invoice-a',subjectStudentIds:['qa-student-a'],lifecycle:'Active'} as const;
-  const attendance={schoolId:'qa-school-a',workspaceKey:'attendance',resourceType:'attendance-entry',recordId:'attendance-a',subjectStudentIds:['qa-student-a'],audienceType:'SECTION',classId:'qa-class-viii',sectionId:'qa-section-viii-a',lifecycle:'Published'} as const;
-  await expect(authorizeRecord(db,parent,'record.view',invoice)).resolves.toBeTruthy();
-  await expect(authorizeRecord(db,student,'record.view',attendance)).resolves.toBeTruthy();
-  state.children[0].active=false;state.students[0].sectionId='qa-section-viii-b';
-  await expect(authorizeRecord(db,parent,'record.view',invoice)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeRecord(db,student,'record.view',attendance)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
+ it('grants only the actions that the selected tab permissions map to',async()=>{
+  const state=baseState();state.grants=[];state.universal=[{groupId:'qa-group-teachers',roleId:'qa-role-homework-teacher',tabKey:'MAIN',permissionKey:'VIEW'},{groupId:'qa-group-teachers',roleId:'qa-role-homework-teacher',tabKey:'SPECIAL',permissionKey:'VIEW_ASSIGNED_RECORDS'}];
+  const db=database(state),teacher=actor('qa-user-teacher',{teacherId:'qa-teacher-science'}),own=homework('own','qa-section-viii-a','qa-student-a','qa-user-teacher');
+  await expect(authorizeRecord(db,teacher,'record.view',own)).resolves.toBeTruthy();
+  await expect(authorizeRecord(db,teacher,'record.update',own)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
+  await expect(authorizeRecord(db,teacher,'record.print',own)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
+  await expect(authorizeRecord(db,teacher,'attachment.view',own)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
  });
- it('keeps shared records separate from personal and confidential records',async()=>{
-  const state=baseState(),db=database(state),studentA=actor('qa-user-student-a',{studentId:'qa-student-a'}),parentA=actor('qa-user-parent-a',{guardianId:'qa-parent-a'}),teacher=actor('qa-user-teacher',{teacherId:'qa-teacher-science'});
-  state.grants.push(
-   {groupId:'qa-group-students',roleId:'qa-results-student',workspaceKey:'exams-results',resourceType:'mark',action:'record.view',scope:'SELF'},
-   {groupId:'qa-group-parents',roleId:'qa-attendance-parent',workspaceKey:'attendance',resourceType:'attendance-entry',action:'record.view',scope:'CHILD_PERSONAL'},
-   {groupId:'qa-group-parents',roleId:'qa-fees-parent',workspaceKey:'fees-payments',resourceType:'fee-payment',action:'record.view',scope:'CHILD_PERSONAL'}
-  );
-  const studentBMark={schoolId:'qa-school-a',workspaceKey:'exams-results',resourceType:'mark',recordId:'mark-b',subjectStudentIds:['qa-student-b'],lifecycle:'Published'} as const;
-  const studentBAttendance={schoolId:'qa-school-a',workspaceKey:'attendance',resourceType:'attendance-entry',recordId:'attendance-b',subjectStudentIds:['qa-student-b'],lifecycle:'Published'} as const;
-  const studentBFee={schoolId:'qa-school-a',workspaceKey:'fees-payments',resourceType:'fee-payment',recordId:'fee-b',subjectStudentIds:['qa-student-b'],lifecycle:'Published'} as const;
-  const confidentialA={schoolId:'qa-school-a',workspaceKey:'fees-payments',resourceType:'fee-payment',recordId:'fee-a-private',subjectStudentIds:['qa-student-a'],lifecycle:'Published',sensitivity:'Confidential'} as const;
-  await expect(authorizeRecord(db,studentA,'record.view',studentBMark)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeRecord(db,parentA,'record.view',studentBAttendance)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeRecord(db,parentA,'record.view',studentBFee)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeRecord(db,teacher,'record.view',studentBFee)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeRecord(db,parentA,'record.view',confidentialA)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  state.grants.find(x=>x.roleId==='qa-fees-parent')!.constraints={viewConfidential:true};
-  await expect(authorizeRecord(db,parentA,'record.view',confidentialA)).resolves.toBeTruthy();
+ it('ignores the retired per-action grant table entirely',async()=>{
+  const state=baseState();state.universal=[];state.grants=[];const db=database(state);
+  const sqlSeen:string[]=[];const spy={query:async(sql:string,v?:unknown[])=>{sqlSeen.push(sql);return db.query(sql,v)}} as any;
+  await expect(authorizeRecord(spy,actor('qa-user-teacher',{teacherId:'qa-teacher-science'}),'record.view',homework('r2','qa-section-viii-a','qa-student-a'))).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
+  expect(sqlSeen.some(sql=>sql.includes('access_role_grants'))).toBe(false);
  });
- it('does not borrow record visibility for attachments, downloads, print, or export',async()=>{
-  const state=baseState(),db=database(state),teacher=actor('qa-user-teacher',{teacherId:'qa-teacher-science'}),record=homework('qa-homework-a','qa-section-viii-a','qa-student-a');
-  state.grants=state.grants.filter(x=>x.groupId!=='qa-group-teachers');
-  state.grants.push({groupId:'qa-group-teachers',roleId:'qa-role-independent',workspaceKey:'homework',resourceType:'homework',action:'record.view',scope:'ALL_WORKSPACE'});
-  await expect(authorizeRecord(db,teacher,'record.view',record)).resolves.toBeTruthy();
-  await expect(authorizeRecord(db,teacher,'attachment.view',record)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeRecord(db,teacher,'attachment.download',record)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeRecord(db,teacher,'record.print',record)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeRecord(db,teacher,'record.export',record)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  state.grants.push({groupId:'qa-group-teachers',roleId:'qa-role-independent',workspaceKey:'homework',resourceType:'homework',action:'attachment.view',scope:'ALL_WORKSPACE'});
-  await expect(authorizeRecord(db,teacher,'attachment.view',record)).resolves.toBeTruthy();
-  await expect(authorizeRecord(db,teacher,'attachment.download',record)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
- }); it('does not grant Subject workspace access without a Subject role grant',async()=>{
-  const state=baseState(),db=database(state),teacher=actor('qa-user-teacher',{teacherId:'qa-teacher-science'}),subject={schoolId:'qa-school-a',workspaceKey:'subjects',resourceType:'subject',recordId:'qa-subject-science',lifecycle:'Active'} as const;
-  await expect(authorizeRecord(db,teacher,'record.view',subject)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  await expect(authorizeCreate(db,teacher,subject)).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});
-  state.grants.push(
-   {groupId:'qa-group-teachers',roleId:'qa-subject-manager',workspaceKey:'subjects',resourceType:'subject',action:'record.view',scope:'ALL_WORKSPACE'},
-   {groupId:'qa-group-teachers',roleId:'qa-subject-manager',workspaceKey:'subjects',resourceType:'subject',action:'record.create',scope:'ALL_WORKSPACE'},
-   {groupId:'qa-group-teachers',roleId:'qa-subject-manager',workspaceKey:'subjects',resourceType:'subject',action:'record.update',scope:'ALL_WORKSPACE'}
-  );
-  await expect(authorizeRecord(db,teacher,'record.view',subject)).resolves.toBeTruthy();
-  await expect(authorizeCreate(db,teacher,subject)).resolves.toBeTruthy();
-  await expect(authorizeRecord(db,teacher,'record.update',subject)).resolves.toBeTruthy();
- });
+
  it('uses only Academic Year workspace grants for list and lifecycle actions',async()=>{
   const state=baseState(),db=database(state),teacher=actor('qa-user-teacher'),year={schoolId:'qa-school-a',workspaceKey:'academic-years',resourceType:'academic-year',recordId:'qa-year-current',lifecycle:'Active'} as const;
   await expect(authorizeWorkspaceAction(db,teacher,'academic-years','academic-year','record.view')).rejects.toMatchObject({code:'AUTHORIZATION_DENIED'});

@@ -15,7 +15,7 @@ export type GrantConstraints=Readonly<{
 export type EffectiveGrant=Readonly<{
   workspaceKey:string;resourceType:string;action:AuthorizationAction;scope:AuthorizationScope;
   constraints:GrantConstraints;groupId:string;groupName:string;roleId:string|null;roleName:string|null;
-  provenance:'normalized'|'legacy-role';
+  provenance:'universal';
 }>;
 
 export type RecordSecurityContext=Readonly<{
@@ -59,13 +59,7 @@ export const LEGACY_RUNTIME_AUTHORIZATION_ENABLED=false as const;
 export async function resolveEffectiveGrants(db:Queryable,p:Principal,workspaceKey:string,resourceType:string,tabKey?:WorkspaceTabKey):Promise<EffectiveGrant[]>{
   const workspace=(await db.query<any>("SELECT id FROM workspace_definitions WHERE school_id=$1 AND workspace_key=$2 AND status<>'Archived'",[p.schoolId,workspaceKey])).rows[0];
   if(!workspace)return[];
-  const [grantRows,universalRows]=await Promise.all([
-    db.query<any>(`SELECT g.id AS "groupId",g.name AS "groupName",ar.id AS "roleId",ar.name AS "roleName",arg.resource_type AS "resourceType",arg.action_key AS action,arg.scope_key AS scope,arg.constraints
-      FROM access_group_memberships gm JOIN access_groups g ON g.id=gm.group_id AND g.school_id=gm.school_id AND g.active=true
-      JOIN access_group_roles agr ON agr.group_id=g.id AND agr.school_id=g.school_id
-      JOIN access_roles ar ON ar.id=agr.role_id AND ar.school_id=g.school_id AND ar.status='Active' AND ar.workspace_id=$3
-      JOIN access_role_grants arg ON arg.role_id=ar.id AND arg.school_id=ar.school_id
-      WHERE gm.school_id=$1 AND gm.user_id=$2 AND arg.resource_type=$4`,[p.schoolId,p.userId,workspace.id,resourceType]),
+  const [universalRows]=await Promise.all([
     db.query<any>(`SELECT g.id AS "groupId",g.name AS "groupName",ar.id AS "roleId",ar.name AS "roleName",urp.tab_key AS "tabKey",urp.permission_key AS "permissionKey"
       FROM access_group_memberships gm JOIN access_groups g ON g.id=gm.group_id AND g.school_id=gm.school_id AND g.active=true
       JOIN access_group_roles agr ON agr.group_id=g.id AND agr.school_id=g.school_id
@@ -73,11 +67,11 @@ export async function resolveEffectiveGrants(db:Queryable,p:Principal,workspaceK
       JOIN access_role_universal_permissions urp ON urp.role_id=ar.id AND urp.school_id=ar.school_id
       WHERE gm.school_id=$1 AND gm.user_id=$2`,[p.schoolId,p.userId,workspace.id])
   ]);
-  const universalRoleIds=new Set(universalRows.rows.map((row:any)=>row.roleId)),normalized=grantRows.rows.filter((row:any)=>!universalRoleIds.has(row.roleId)).map((row:any)=>Object.freeze({workspaceKey,resourceType:row.resourceType,action:row.action as AuthorizationAction,scope:row.scope as AuthorizationScope,constraints:Object.freeze(row.constraints||{}),groupId:row.groupId,groupName:row.groupName,roleId:row.roleId,roleName:row.roleName,provenance:'normalized' as const})),buckets=new Map<string,{groupId:string;groupName:string;roleId:string;roleName:string;items:UniversalPermission[]}>();
+  const buckets=new Map<string,{groupId:string;groupName:string;roleId:string;roleName:string;items:UniversalPermission[]}>();
   for(const row of universalRows.rows){const key=row.groupId+'|'+row.roleId,bucket=buckets.get(key)||{groupId:String(row.groupId),groupName:String(row.groupName),roleId:String(row.roleId),roleName:String(row.roleName),items:[] as UniversalPermission[]};bucket.items.push({tabKey:row.tabKey,permissionKey:row.permissionKey});buckets.set(key,bucket)}
   const universal:EffectiveGrant[]=[];
-  for(const bucket of buckets.values())for(const grant of universalPermissionsToGrants(workspaceKey,bucket.items))if(grant.resourceType===resourceType)universal.push(Object.freeze({workspaceKey,resourceType:grant.resourceType,action:grant.action,scope:grant.scope,constraints:Object.freeze(grant.constraints||{}),groupId:bucket.groupId,groupName:bucket.groupName,roleId:bucket.roleId,roleName:bucket.roleName,provenance:'normalized' as const}));
-  const out=[...normalized,...universal],seen=new Set<string>(),defaultTab=defaultTabForResource(workspaceKey,resourceType),requestedTab=tabKey||defaultTab;
+  for(const bucket of buckets.values())for(const grant of universalPermissionsToGrants(workspaceKey,bucket.items))if(grant.resourceType===resourceType)universal.push(Object.freeze({workspaceKey,resourceType:grant.resourceType,action:grant.action,scope:grant.scope,constraints:Object.freeze(grant.constraints||{}),groupId:bucket.groupId,groupName:bucket.groupName,roleId:bucket.roleId,roleName:bucket.roleName,provenance:'universal' as const}));
+  const out=[...universal],seen=new Set<string>(),defaultTab=defaultTabForResource(workspaceKey,resourceType),requestedTab=tabKey||defaultTab;
   return out.filter(grant=>{const key=[grant.action,grant.scope,grant.groupId,grant.roleId||'',JSON.stringify(grant.constraints)].join('|');if(seen.has(key))return false;seen.add(key);return true}).filter(grant=>grantAppliesToTab(grant,requestedTab,defaultTab));
 }
 

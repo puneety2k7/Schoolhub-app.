@@ -9,7 +9,7 @@ import { FEES_SCHEMA } from './fees-schema.js';
 import { CERTIFICATES_SCHEMA } from './certificates-schema.js';
 import { PICKLISTS_SCHEMA } from './picklists-schema.js';
 
-export const DATABASE_SCHEMA_VERSION = 50;
+export const DATABASE_SCHEMA_VERSION = 51;
 export const migrations = [
   { version: 1, name: 'core_identity', sql: `
 CREATE TABLE IF NOT EXISTS migration_history(version integer PRIMARY KEY,name text NOT NULL,applied_at timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP);
@@ -697,6 +697,41 @@ WITH operational AS (
 UPDATE workspace_definitions w
 SET version=version+1,definition_version=definition_version+1,updated_at=CURRENT_TIMESTAMP
 WHERE w.id IN (SELECT DISTINCT workspace_id FROM inserted);
+`}
+ ,{version:51,name:'convert_legacy_role_grants_to_universal_permissions',sql:`
+CREATE TEMP TABLE legacy_action_map(action_key text PRIMARY KEY,permission_key text NOT NULL,special boolean NOT NULL) ON COMMIT DROP;
+INSERT INTO legacy_action_map(action_key,permission_key,special) VALUES
+ ('record.view','VIEW',false),('report.view','VIEW',false),('submission.view','VIEW',false),
+ ('record.create','ADD',false),('record.update','EDIT',false),('assessment.enter_marks','EDIT',false),('submission.update','EDIT',false),
+ ('record.archive','DELETE',false),('record.print','PRINT',false),('report.export','PRINT',false),
+ ('import.validate','IMPORT_RECORDS',true),('import.execute','IMPORT_RECORDS',true),('audit.view','VIEW_CHANGE_LOG',true),
+ ('record.restore','RESTORE_ARCHIVED_RECORDS',true),('record.unarchive','RESTORE_ARCHIVED_RECORDS',true),('record.permanent_delete','PERMANENT_DELETE',true),
+ ('record.manage_assignees','ASSIGN_RECORDS',true),('record.transfer_ownership','CHANGE_RECORD_OWNER',true),
+ ('record.publish','PUBLISH',true),('assessment.publish_results','PUBLISH',true),('record.unpublish','UNPUBLISH',true),('assessment.reopen_results','UNPUBLISH',true),
+ ('record.acknowledge','ACKNOWLEDGE',true),('workflow.submit','SUBMIT',true),('submission.create','SUBMIT',true),('workflow.review','REVIEW',true),
+ ('workflow.approve','APPROVE',true),('workflow.reject','REJECT',true),('workflow.return','RETURN',true),('submission.return','RETURN',true),
+ ('workflow.cancel','CANCEL',true),('submission.withdraw','CANCEL',true),('record.override_locks','OVERRIDE_RECORD_LOCKS',true),('assessment.moderate','OVERRIDE_RECORD_LOCKS',true);
+CREATE TEMP TABLE legacy_only_roles ON COMMIT DROP AS
+SELECT DISTINCT g.school_id,g.role_id,r.created_by FROM access_role_grants g JOIN access_roles r ON r.id=g.role_id AND r.school_id=g.school_id
+WHERE NOT EXISTS(SELECT 1 FROM access_role_universal_permissions u WHERE u.role_id=g.role_id);
+CREATE TEMP TABLE legacy_converted ON COMMIT DROP AS
+SELECT DISTINCT g.school_id,g.role_id,o.created_by,
+ CASE WHEN m.special THEN 'SPECIAL' WHEN g.constraints->>'tabKey' IN ('MAIN','GRID_1','GRID_2','GRID_3') THEN g.constraints->>'tabKey' ELSE 'MAIN' END AS tab_key,
+ m.permission_key
+FROM access_role_grants g JOIN legacy_only_roles o ON o.role_id=g.role_id JOIN legacy_action_map m ON m.action_key=g.action_key
+UNION
+SELECT g.school_id,g.role_id,o.created_by,'SPECIAL','VIEW_RECORDS_OWNED_BY_OTHERS' FROM access_role_grants g JOIN legacy_only_roles o ON o.role_id=g.role_id WHERE g.scope_key='ALL_WORKSPACE'
+UNION
+SELECT g.school_id,g.role_id,o.created_by,'SPECIAL','VIEW_ASSIGNED_RECORDS' FROM access_role_grants g JOIN legacy_only_roles o ON o.role_id=g.role_id WHERE g.scope_key IN ('DIRECT_ASSIGNED','GROUP','CLASS','SECTION','AUDIENCE','CHILD_ASSIGNED','ASSIGNED_TEACHING_CONTEXT','ASSIGNED_CLASS','ASSIGNED_SECTION','ASSIGNED_STUDENT','CASE_ASSIGNED')
+UNION
+SELECT g.school_id,g.role_id,o.created_by,'SPECIAL','VIEW_ARCHIVED_RECORDS' FROM access_role_grants g JOIN legacy_only_roles o ON o.role_id=g.role_id WHERE g.constraints->>'viewArchived'='true' OR g.action_key IN ('record.restore','record.unarchive')
+UNION
+SELECT g.school_id,g.role_id,o.created_by,CASE WHEN g.constraints->>'tabKey' IN ('MAIN','GRID_1','GRID_2','GRID_3') THEN g.constraints->>'tabKey' ELSE 'MAIN' END,'VIEW' FROM access_role_grants g JOIN legacy_only_roles o ON o.role_id=g.role_id WHERE g.action_key IN ('record.restore','record.unarchive');
+INSERT INTO legacy_converted(school_id,role_id,created_by,tab_key,permission_key)
+SELECT DISTINCT school_id,role_id,created_by,'DASHBOARD','VIEW' FROM legacy_converted WHERE tab_key<>'SPECIAL' AND permission_key='VIEW';
+INSERT INTO access_role_universal_permissions(school_id,role_id,tab_key,permission_key,created_by)
+SELECT school_id,role_id,tab_key,permission_key,created_by FROM legacy_converted
+ON CONFLICT(role_id,tab_key,permission_key) DO NOTHING;
 `}
 
 

@@ -4,6 +4,7 @@ import type { Principal } from './service.js';
 import { ApiError } from '../errors/api-error.js';
 import { serverPermissionKeysForGrant,workspaceManifest,type AuthorizationAction } from './policy-registry.js';
 import { getCapabilities,type RecordSecurityContext } from './policy-engine.js';
+import { universalPermissionsToGrants,type UniversalPermission } from './universal-workspace-permissions.js';
 export const ACCESS_ROLES=['View Records','Add Records','Edit Records','Delete Records','Permanent Delete Records','Print Records','View Attachments','Add Attachments','View Change Log','Run Imports','Setup Administration','View Own Records','View Assigned Records','View Group Records','View Class Records','View Section Records','View Audience Records','View All Workspace Records'] as const;
 export type AccessRole=typeof ACCESS_ROLES[number];
 export const AUDIENCE_TYPES=['Private','Selected groups','Selected individuals','Class','Section','Entire workspace','Global'] as const;
@@ -27,17 +28,19 @@ export async function previewRecordAccess(db:Queryable,p:Principal,workspaceId:s
 export async function permissionsForUser(db:Queryable,p:Pick<Principal,'schoolId'|'userId'|'roleName'|'systemRecovery'|'permissions'>){
  const system=p.systemRecovery===true;
  if(system){const out=new Set<string>(),workspaces=(await db.query<any>("SELECT workspace_key AS key FROM workspace_definitions WHERE school_id=$1 AND status<>'Archived'",[p.schoolId])).rows;for(const {key} of workspaces)for(const action of ['view','create','update','delete','manage','print','permanent-delete'])out.add(key+':'+action);for(const permission of ['school:read','school:manage','core:manage','users:view','users:manage','imports:manage','audit:view','diagnostics:view','diagnostics:export','portal:manage','portal:admin','workspaces:view','workspaces:configure','workspaces:create','workspaces:archive','workspaces:reset'])out.add(permission);return{permissions:[...out].sort(),authority:'SYSTEM_RECOVERY_ROLE' as const}}
- const grants=(await db.query<any>(`SELECT w.workspace_key AS "workspaceKey",arg.resource_type AS "resourceType",arg.action_key AS action,arg.scope_key AS scope
+ const rows=(await db.query<any>(`SELECT w.workspace_key AS "workspaceKey",ar.id AS "roleId",urp.tab_key AS "tabKey",urp.permission_key AS "permissionKey"
    FROM access_group_memberships gm
    JOIN access_groups g ON g.id=gm.group_id AND g.school_id=gm.school_id AND g.active=true
    JOIN access_group_roles agr ON agr.group_id=g.id AND agr.school_id=g.school_id
    JOIN access_roles ar ON ar.id=agr.role_id AND ar.school_id=g.school_id AND ar.status='Active'
    JOIN workspace_definitions w ON w.id=ar.workspace_id AND w.school_id=ar.school_id AND w.status<>'Archived'
-   JOIN access_role_grants arg ON arg.role_id=ar.id AND arg.school_id=ar.school_id
+   JOIN access_role_universal_permissions urp ON urp.role_id=ar.id AND urp.school_id=ar.school_id
    WHERE gm.school_id=$1 AND gm.user_id=$2`,[p.schoolId,p.userId])).rows;
- const out=new Set<string>();for(const grant of grants)for(const permission of serverPermissionKeysForGrant(grant.workspaceKey,grant.resourceType,grant.action as AuthorizationAction))out.add(permission);
+ const buckets=new Map<string,{workspaceKey:string;items:UniversalPermission[]}>();
+ for(const row of rows){const key=row.workspaceKey+'|'+row.roleId,bucket=buckets.get(key)||{workspaceKey:row.workspaceKey,items:[] as UniversalPermission[]};bucket.items.push({tabKey:row.tabKey,permissionKey:row.permissionKey});buckets.set(key,bucket)}
+ const out=new Set<string>();for(const bucket of buckets.values())for(const grant of universalPermissionsToGrants(bucket.workspaceKey,bucket.items))for(const permission of serverPermissionKeysForGrant(bucket.workspaceKey,grant.resourceType,grant.action as AuthorizationAction))out.add(permission);
  const setup=!!(await db.query("SELECT 1 FROM access_group_memberships gm JOIN access_groups g ON g.id=gm.group_id AND g.active=true JOIN access_group_global_roles ggr ON ggr.group_id=g.id AND ggr.school_id=g.school_id WHERE gm.school_id=$1 AND gm.user_id=$2 AND ggr.role_key='Setup Administration' LIMIT 1",[p.schoolId,p.userId])).rows[0];
- if(setup)for(const permission of ['users:view','users:manage','audit:view','diagnostics:view','diagnostics:export','portal:manage','school:read','school:manage','reports:view','reports:print','workflows:view','workflows:manage','workspaces:view','workspaces:configure','workspaces:create','workspaces:archive','workspaces:reset'])out.add(permission);
+ if(setup)for(const permission of ['users:view','users:manage','audit:view','diagnostics:view','diagnostics:export','portal:manage','school:read','school:manage','workspaces:view','workspaces:configure','workspaces:create','workspaces:archive','workspaces:reset'])out.add(permission);
  return{permissions:[...out].sort(),authority:'GROUP_ROLE_GRANT' as const};
 }export async function enforceRecordPayload(db:Queryable,p:Principal,workspaceKey:string,payload:any){
  const workspace=(await db.query<any>('SELECT id FROM workspace_definitions WHERE school_id=$1 AND workspace_key=$2 AND status<>$3',[p.schoolId,workspaceKey,'Archived'])).rows[0];

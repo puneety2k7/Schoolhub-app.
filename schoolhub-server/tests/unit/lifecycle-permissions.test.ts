@@ -38,7 +38,7 @@ describe('explicit lifecycle authorization',()=>{
   await expect(requireLifecycleSelections(db,p,'homework','MAIN','restore')).rejects.toMatchObject({code:'LIFECYCLE_PERMISSION_REQUIRED'});
  });
  it('allows permanent-delete scope evaluation on an archived record without adding Restore permissions',()=>{
-  const grant={workspaceKey:'homework',resourceType:'homework',action:'record.permanent_delete',scope:'ALL_WORKSPACE',constraints:{tabKey:'MAIN'},groupId:'group',groupName:'Group',roleId:'role',roleName:'Role',provenance:'normalized'} as EffectiveGrant;
+  const grant={workspaceKey:'homework',resourceType:'homework',action:'record.permanent_delete',scope:'ALL_WORKSPACE',constraints:{tabKey:'MAIN'},groupId:'group',groupName:'Group',roleId:'role',roleName:'Role',provenance:'universal'} as EffectiveGrant;
   const record={schoolId:'school',workspaceKey:'homework',resourceType:'homework',recordId:'record',lifecycle:'Archived',tabKey:'MAIN'} as const,relationships={groupIds:new Set(),classIds:new Set(),sectionIds:new Set(),childStudentIds:new Set(),assignments:[]};
   expect(grantMatches(grant,p,record,relationships as any,'record.permanent_delete')).toBe(true);
   expect(grantMatches(grant,p,record,relationships as any)).toBe(false);
