@@ -1,0 +1,15 @@
+{
+  "name": "schoolhub-v2",
+  "private": true,
+  "version": "2.0.0-foundation",
+  "description": "SchoolHub V2 — universal workspace platform (clean-slate rebuild)",
+  "workspaces": ["server", "frontend"],
+  "scripts": {
+    "dev:server": "npm run dev -w server",
+    "dev:frontend": "npm run dev -w frontend",
+    "build": "npm run build -w server && npm run build -w frontend",
+    "test": "npm run test -w server && npm run test -w frontend",
+    "migrate": "npm run migrate -w server"
+  },
+  "engines": { "node": ">=22" }
+}
