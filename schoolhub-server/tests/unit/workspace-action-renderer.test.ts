@@ -4,11 +4,11 @@ import {describe,expect,it,beforeEach} from 'vitest';
 
 type Action={actionKey:string;operationKey:string;label:string;tab:string;placement:string;visible:boolean;order:number;permissionKey:string;permissionTab:string;recordStates:string[]};
 
-function loadRenderer(){
+function loadRenderer(mode?:'universal'|'legacy'){
  const source=readFileSync(new URL('../../../Server_Module_Completion/workspace-actions.js',import.meta.url),'utf8');
  const makeElement=()=>({dataset:{} as any,classList:{toggle(){}},children:[] as any[],removed:false,textContent:'',append(...nodes:any[]){for(const node of nodes){this.children.push(node);this.textContent+=node.textContent||''}},addEventListener(){},remove(){this.removed=true},querySelectorAll(selector:string){return selector.includes('workspace-action-created')?this.children.filter((x:any)=>x.dataset?.workspaceActionCreated==='true'&&!x.removed):[]}});
  const document:any={readyState:'loading',documentElement:{},head:{appendChild(){}},getElementById(){return null},createElement(){return makeElement()},createTextNode(value:string){return{textContent:value}},addEventListener(){},querySelectorAll(){return[]}};
- const context:any={window:{schoolHubTransport:{server:{request:async()=>{throw Error('network not expected')}}}},document,MutationObserver:class{observe(){}},requestAnimationFrame:(fn:Function)=>fn(),setTimeout,clearTimeout,encodeURIComponent,console,confirm:()=>true,alert(){}};
+ const context:any={window:{...(mode?{schoolHubRuntimeMode:{modeOf:()=>mode}}:{}),schoolHubTransport:{server:{request:async()=>{throw Error('network not expected')}}}},document,MutationObserver:class{observe(){}},requestAnimationFrame:(fn:Function)=>fn(),setTimeout,clearTimeout,encodeURIComponent,console,confirm:()=>true,alert(){}};
  vm.runInNewContext(source,context,{filename:'workspace-actions.js'});
  return context.window.schoolHubWorkspaceActions;
 }
@@ -64,5 +64,33 @@ describe('universal frontend action renderer',()=>{
   expect(html).toContain('data-student-main-action-host');
   const renderer=readFileSync(new URL('../../../Server_Module_Completion/workspace-actions.js',import.meta.url),'utf8');
   expect(renderer).toContain("if(!action)continue");
+ });
+});
+
+
+describe('tab-aware operation adapters',()=>{
+ const model={workspaceKey:'students',administratorOverride:true,layout:{actions}};
+ const ops=(api:any,tab:string)=>api.project(model,{workspaceKey:'students',tab,recordState:'None',placements:['workspaceHeader','sectionHeader']}).map((x:Action)=>x.operationKey);
+ it('never lets a Grid tab resolve a workspace-wide (MAIN) handler in a Universal Runtime workspace',()=>{
+  const api=loadRenderer('universal');
+  api.register('students','add',()=>'add-student');            // native workspace-wide "Add Student"
+  expect(ops(api,'MAIN')).toEqual(['add']);
+  for(const tab of ['GRID_1','GRID_2','GRID_3'])expect(ops(api,tab),tab).toEqual([]);
+  api.register('students','add',()=>'grid-add',{tabs:['GRID_2']});
+  expect(ops(api,'GRID_2')).toEqual(['add']);expect(ops(api,'GRID_1')).toEqual([]);
+ });
+ it('prefers a MAIN-scoped handler over the workspace-wide one on MAIN',async()=>{
+  const api=loadRenderer('universal'),calls:string[]=[];
+  api.register('students','add',()=>calls.push('wide'));api.register('students','add',()=>calls.push('main'),{tabs:['MAIN']});
+  await api.execute('students','add',{model,tab:'MAIN',recordState:'None'});
+  expect(calls).toEqual(['main']);
+ });
+ it('keeps the previous workspace-wide resolution for a legacy workspace',()=>{
+  const api=loadRenderer('legacy');api.register('students','add',()=>undefined);
+  expect(ops(api,'GRID_1')).toEqual(['add']);
+ });
+ it('does not run the legacy DOM overlay for a Universal Runtime page',()=>{
+  const renderer=readFileSync(new URL('../../../Server_Module_Completion/workspace-actions.js',import.meta.url),'utf8');
+  expect(renderer).toContain("if(mode==='universal'||mode==='unknown')return;");
  });
 });

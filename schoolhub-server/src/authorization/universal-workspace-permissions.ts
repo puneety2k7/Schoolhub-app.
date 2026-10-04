@@ -1,4 +1,5 @@
-import {scopesForAction,workspaceManifest,type AuthorizationAction,type AuthorizationScope} from './policy-registry.js';
+import {scopesForAction,type AuthorizationAction,type AuthorizationScope} from './policy-registry.js';
+import {resourceForTab,defaultTabForResource,tabsForResource} from './workspace-tab-resources.js';
 
 export const UNIVERSAL_DASHBOARD_TAB_KEY='DASHBOARD' as const;
 export const UNIVERSAL_TAB_KEYS=['MAIN','GRID_1','GRID_2','GRID_3'] as const;
@@ -71,23 +72,23 @@ function specialPrerequisite(permission:string,selected:Set<string>,tabKey:Unive
 
 export function universalPermissionsToGrants(workspaceKey:string,items:readonly UniversalPermission[]):UniversalDerivedGrant[]{
  validateUniversalPermissions(items);
- const selected=new Set(items.map(item=>item.tabKey+'|'+item.permissionKey)),manifest=workspaceManifest(workspaceKey),out:UniversalDerivedGrant[]=[],seen=new Set<string>();
+ const selected=new Set(items.map(item=>item.tabKey+'|'+item.permissionKey)),out:UniversalDerivedGrant[]=[],seen=new Set<string>();
  const special=(key:string)=>selected.has('SPECIAL|'+key),workspaceAdmin=special('WORKSPACE_ADMINISTRATOR'),allRecords=workspaceAdmin||special('VIEW_RECORDS_OWNED_BY_OTHERS'),assigned=workspaceAdmin||special('VIEW_ASSIGNED_RECORDS'),viewArchived=workspaceAdmin||special('VIEW_ARCHIVED_RECORDS');
- const push=(resourceIndex:number,tabKey:UniversalTabKey,action:AuthorizationAction)=>{
-  const policy=manifest[resourceIndex]||manifest[0];if(!policy||!policy.actions.includes(action))return;
+ const push=(tabKey:UniversalTabKey,action:AuthorizationAction)=>{
+  const policy=resourceForTab(workspaceKey,tabKey);if(!policy||!policy.actions.includes(action))return;
   const scopes=scopesForPermission(scopesForAction(policy,action),action,allRecords,assigned,workspaceAdmin);
   for(const scope of scopes){const constraints={...(viewArchived?{viewArchived:true}:{}),tabKey};const key=[policy.resourceType,action,scope,tabKey].join('|');if(!seen.has(key)){seen.add(key);out.push({resourceType:policy.resourceType,action,scope,constraints})}}
  };
- UNIVERSAL_TAB_KEYS.forEach((tabKey,index)=>{
-  for(const [permission,actions] of Object.entries(NORMAL_ACTIONS))if(workspaceAdmin||selected.has(tabKey+'|'+permission))for(const action of actions)push(index,tabKey,action);
-  for(const [permission,actions] of Object.entries(SPECIAL_ACTIONS)){const explicitLifecycle=['PERMANENT_DELETE','RESTORE_ARCHIVED_RECORDS'].includes(permission),permitted=(!explicitLifecycle&&workspaceAdmin)||(special(permission)&&specialPrerequisite(permission,selected,tabKey));if(permitted)for(const action of actions)push(index,tabKey,action)}
+ UNIVERSAL_TAB_KEYS.forEach(tabKey=>{
+  for(const [permission,actions] of Object.entries(NORMAL_ACTIONS))if(workspaceAdmin||selected.has(tabKey+'|'+permission))for(const action of actions)push(tabKey,action);
+  for(const [permission,actions] of Object.entries(SPECIAL_ACTIONS)){const explicitLifecycle=['PERMANENT_DELETE','RESTORE_ARCHIVED_RECORDS'].includes(permission),permitted=(!explicitLifecycle&&workspaceAdmin)||(special(permission)&&specialPrerequisite(permission,selected,tabKey));if(permitted)for(const action of actions)push(tabKey,action)}
  });
  return out;
 }
 
 export function inferUniversalPermissions(workspaceKey:string,grants:readonly UniversalDerivedGrant[]):UniversalPermission[]{
- const manifest=workspaceManifest(workspaceKey),out:UniversalPermission[]=[],seen=new Set<string>();
+ const out:UniversalPermission[]=[],seen=new Set<string>();
  const add=(tabKey:UniversalTabKey|'SPECIAL',permissionKey:string)=>{const key=tabKey+'|'+permissionKey;if(!seen.has(key)){seen.add(key);out.push({tabKey,permissionKey})}};
- for(const grant of grants){const index=manifest.findIndex(resource=>resource.resourceType===grant.resourceType);if(index<0)continue;const constrained=String(grant.constraints?.tabKey||''),tabKey=(UNIVERSAL_TAB_KEYS as readonly string[]).includes(constrained)?constrained as UniversalTabKey:UNIVERSAL_TAB_KEYS[index];if(!tabKey)continue;const permission=ACTION_PERMISSION.get(grant.action);if(permission){if(Object.prototype.hasOwnProperty.call(NORMAL_ACTIONS,permission))add(tabKey,permission);else add('SPECIAL',permission)}if(grant.scope==='ALL_WORKSPACE')add('SPECIAL','VIEW_RECORDS_OWNED_BY_OTHERS');if(assignedScopes.has(grant.scope))add('SPECIAL','VIEW_ASSIGNED_RECORDS');if(grant.constraints?.viewArchived===true)add('SPECIAL','VIEW_ARCHIVED_RECORDS')}
+ for(const grant of grants){const served=tabsForResource(workspaceKey,grant.resourceType);if(!served.length)continue;const constrained=String(grant.constraints?.tabKey||''),tabKey=(UNIVERSAL_TAB_KEYS as readonly string[]).includes(constrained)?constrained as UniversalTabKey:defaultTabForResource(workspaceKey,grant.resourceType);const permission=ACTION_PERMISSION.get(grant.action);if(permission){if(Object.prototype.hasOwnProperty.call(NORMAL_ACTIONS,permission))add(tabKey,permission);else add('SPECIAL',permission)}if(grant.scope==='ALL_WORKSPACE')add('SPECIAL','VIEW_RECORDS_OWNED_BY_OTHERS');if(assignedScopes.has(grant.scope))add('SPECIAL','VIEW_ASSIGNED_RECORDS');if(grant.constraints?.viewArchived===true)add('SPECIAL','VIEW_ARCHIVED_RECORDS')}
  return out;
 }

@@ -5,7 +5,7 @@ function Get-SchoolHubRoot { return (Resolve-Path (Join-Path $PSScriptRoot '..\.
 function Read-SchoolHubConfig {
   param([Parameter(Mandatory=$true)][string]$ConfigPath)
   if(-not (Test-Path -LiteralPath $ConfigPath -PathType Leaf)){throw "CONFIG_NOT_FOUND: Configuration file was not found: $ConfigPath"}
-  $allowed=@('FRONTEND_HOST','FRONTEND_PORT','API_HOST','API_PORT','START_API','POSTGRES_HOST','POSTGRES_PORT','POSTGRES_DATABASE','POSTGRES_USER','POSTGRES_PASSWORD','POSTGRES_SSLMODE','SCHOOL_SLUG','NODE_ENV','SESSION_COOKIE_NAME','SESSION_TTL_MINUTES','ALLOWED_ORIGINS','TRUST_PROXY','LOG_LEVEL','LOG_TO_FILE','LOG_MAX_SIZE_MB','LOG_RETENTION_DAYS','PORTAL_ROLLOUT_MODE')
+  $allowed=@('FRONTEND_HOST','FRONTEND_PORT','API_HOST','API_PORT','START_API','POSTGRES_HOST','POSTGRES_PORT','POSTGRES_DATABASE','POSTGRES_USER','POSTGRES_PASSWORD','POSTGRES_SSLMODE','SCHOOL_SLUG','NODE_ENV','SESSION_COOKIE_NAME','SESSION_TTL_MINUTES','ALLOWED_ORIGINS','TRUST_PROXY','LOG_LEVEL','LOG_TO_FILE','LOG_MAX_SIZE_MB','LOG_RETENTION_DAYS','PORTAL_ROLLOUT_MODE','UNIVERSAL_RUNTIME_WORKSPACES')
   $values=@{};$lineNumber=0
   foreach($raw in Get-Content -LiteralPath $ConfigPath -Encoding UTF8){
     $lineNumber++;$line=$raw.Trim();if(-not $line -or $line.StartsWith('#')){continue}
@@ -16,7 +16,7 @@ function Read-SchoolHubConfig {
     if(($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))){$value=$value.Substring(1,$value.Length-2)}
     $values[$key]=$value
   }
-  $defaults=@{FRONTEND_HOST='127.0.0.1';FRONTEND_PORT='8080';API_HOST='127.0.0.1';API_PORT='4010';START_API='true';POSTGRES_PORT='5432';POSTGRES_SSLMODE='disable';SCHOOL_SLUG='';NODE_ENV='development';SESSION_COOKIE_NAME='schoolhub_sid';SESSION_TTL_MINUTES='480';TRUST_PROXY='false';LOG_LEVEL='info';LOG_TO_FILE='true';LOG_MAX_SIZE_MB='20';LOG_RETENTION_DAYS='30';PORTAL_ROLLOUT_MODE='ReadOnly'}
+  $defaults=@{FRONTEND_HOST='127.0.0.1';FRONTEND_PORT='8080';API_HOST='127.0.0.1';API_PORT='4010';START_API='true';POSTGRES_PORT='5432';POSTGRES_SSLMODE='disable';SCHOOL_SLUG='';NODE_ENV='development';SESSION_COOKIE_NAME='schoolhub_sid';SESSION_TTL_MINUTES='480';TRUST_PROXY='false';LOG_LEVEL='info';LOG_TO_FILE='true';LOG_MAX_SIZE_MB='20';LOG_RETENTION_DAYS='30';PORTAL_ROLLOUT_MODE='ReadOnly';UNIVERSAL_RUNTIME_WORKSPACES='students,uniform'}
   foreach($entry in $defaults.GetEnumerator()){if(-not $values.ContainsKey($entry.Key)){$values[$entry.Key]=$entry.Value}}
   foreach($required in @('POSTGRES_HOST','POSTGRES_DATABASE','POSTGRES_USER','POSTGRES_PASSWORD')){if(-not $values.ContainsKey($required) -or [string]::IsNullOrWhiteSpace($values[$required])){throw "CONFIG_REQUIRED: $required is required."}}
   if($values.POSTGRES_PASSWORD -match '^(CHANGE_ME|replace_me)$'){throw 'CONFIG_PLACEHOLDER: Replace POSTGRES_PASSWORD before setup.'}
@@ -28,6 +28,7 @@ function Read-SchoolHubConfig {
   if(@('development','test','production') -notcontains $values.NODE_ENV){throw 'CONFIG_NODE_ENV: NODE_ENV must be development, test, or production.'}
   if(@('disable','prefer','require','verify-ca','verify-full') -notcontains $values.POSTGRES_SSLMODE){throw 'CONFIG_SSLMODE: POSTGRES_SSLMODE is invalid.'}
   if(@('Off','ReadOnly','Pilot') -notcontains $values.PORTAL_ROLLOUT_MODE){throw 'CONFIG_PORTAL_MODE: PORTAL_ROLLOUT_MODE must be Off, ReadOnly, or Pilot.'}
+  if($values.UNIVERSAL_RUNTIME_WORKSPACES -notmatch '^(\*|[a-z0-9-]+(\s*,\s*[a-z0-9-]+)*)?$'){throw 'CONFIG_UNIVERSAL_RUNTIME: UNIVERSAL_RUNTIME_WORKSPACES must be empty, *, or a comma-separated list of workspace keys.'}
   if($values.SESSION_COOKIE_NAME -notmatch '^[A-Za-z0-9_-]+$'){throw 'CONFIG_COOKIE_NAME: SESSION_COOKIE_NAME contains unsupported characters.'}
   if(-not $values.ContainsKey('ALLOWED_ORIGINS') -or [string]::IsNullOrWhiteSpace($values.ALLOWED_ORIGINS) -or $values.ALLOWED_ORIGINS -eq 'AUTO'){$values.ALLOWED_ORIGINS="http://$($values.FRONTEND_HOST):$($values.FRONTEND_PORT),http://localhost:$($values.FRONTEND_PORT)"}
   return $values
@@ -43,7 +44,7 @@ function Set-SchoolHubEnvironment {
   param([Parameter(Mandatory=$true)][hashtable]$Config,[Parameter(Mandatory=$true)][string]$Root)
   $env:NODE_ENV=$Config.NODE_ENV;$env:HOST=$Config.API_HOST;$env:PORT=$Config.API_PORT;$env:DATABASE_URL=Get-SchoolHubDatabaseUrl $Config
   $env:SESSION_COOKIE_NAME=$Config.SESSION_COOKIE_NAME;$env:SESSION_TTL_MINUTES=$Config.SESSION_TTL_MINUTES;$env:ALLOWED_ORIGINS=$Config.ALLOWED_ORIGINS;$env:TRUST_PROXY=$Config.TRUST_PROXY
-  $env:LOG_LEVEL=$Config.LOG_LEVEL;$env:LOG_DIRECTORY=(Join-Path $Root 'logs');$env:LOG_TO_FILE=$Config.LOG_TO_FILE;$env:LOG_MAX_SIZE_MB=$Config.LOG_MAX_SIZE_MB;$env:LOG_RETENTION_DAYS=$Config.LOG_RETENTION_DAYS;$env:PORTAL_ROLLOUT_MODE=$Config.PORTAL_ROLLOUT_MODE
+  $env:LOG_LEVEL=$Config.LOG_LEVEL;$env:LOG_DIRECTORY=(Join-Path $Root 'logs');$env:LOG_TO_FILE=$Config.LOG_TO_FILE;$env:LOG_MAX_SIZE_MB=$Config.LOG_MAX_SIZE_MB;$env:LOG_RETENTION_DAYS=$Config.LOG_RETENTION_DAYS;$env:PORTAL_ROLLOUT_MODE=$Config.PORTAL_ROLLOUT_MODE;$env:UNIVERSAL_RUNTIME_WORKSPACES=$Config.UNIVERSAL_RUNTIME_WORKSPACES
 }
 
 function Write-SchoolHubRuntimeConfig {

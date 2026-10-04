@@ -148,3 +148,24 @@ Add a **Views** configuration within each Main/Grid tab for specialized record v
 
 This should reuse the existing workspace fields and permission model. It should not introduce workspace-specific switches. After that extension, specialized renderers can consume the same view metadata, which will remove the remaining fixed table/filter presentation while preserving their server-backed business operations.
 
+
+## Universal Workspace Runtime toggle (Implementation Batch 1)
+
+Frontend ownership of an operational workspace is now one of two mutually exclusive modes, resolved by the backend
+(`schoolhub-server/src/services/workspace-runtime-mode.ts`) and delivered in `GET /api/v1/operational-workspaces`
+(`runtimeMode`). Permissions are **not** governed by this toggle.
+
+- `universal`: `universal-workspace-tabs.js` owns the tab bar, Dashboard, Main Tab, Grid Tabs 1-3, fields, standard actions,
+  lifecycle and Grid Form dialogs. `workspace-layout.js` and the `workspace-actions.js` DOM overlay do nothing for the page.
+- `legacy`: the previous native/legacy frontend owns the page, unchanged.
+- Resolution: custom workspace → always `universal`; else `behavior_configuration.frontendRuntime` override; else the
+  `UNIVERSAL_RUNTIME_WORKSPACES` allow-list (default `students,uniform`; `*` = all; empty = none); else `legacy`.
+- A Main Tab is either generic Grid records, a registered `native-content` adapter (Students) or a `records` adapter
+  (Uniform) via `schoolHubUniversalWorkspaces.registerMain`. Adapters supply domain content/operations only.
+- Standard-action handlers are tab-aware: in a `universal` workspace a Grid tab never resolves a MAIN/workspace-wide handler.
+- Workspace + tab → resource is explicit (`authorization/workspace-tab-resources.ts`), never manifest array position.
+- Dashboard VIEW gates only the Dashboard components and Dashboard data feed.
+
+Known remaining legacy debt: Exams and all other workspaces still use the legacy owner; no MAIN adapters other than
+Students and Uniform; migrations 44, 45, 49 and 50 are unchanged (dummy Grid fields exist only for workspaces that existed
+when migration 49/50 ran).

@@ -14,7 +14,8 @@ const schema = z.object({
   LOG_TO_FILE: z.enum(['true', 'false']).default('false'),
   LOG_MAX_SIZE_MB: z.coerce.number().int().min(1).max(1024).default(20),
   LOG_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
-  PORTAL_ROLLOUT_MODE: z.enum(['Off','ReadOnly','Pilot']).default('ReadOnly')
+  PORTAL_ROLLOUT_MODE: z.enum(['Off','ReadOnly','Pilot']).default('ReadOnly'),
+  UNIVERSAL_RUNTIME_WORKSPACES: z.string().max(2000).default('students,uniform')
 });
 
 export type AppConfig = {
@@ -22,6 +23,8 @@ export type AppConfig = {
   databaseUrl: string; cookieName: string; sessionTtlMinutes: number;
   allowedOrigins: string[]; trustProxy: boolean; logLevel: string;
   logDirectory: string; logToFile: boolean; logMaxSizeMb: number; logRetentionDays: number; portalRolloutMode?: 'Off'|'ReadOnly'|'Pilot';
+  /** Operational workspace keys whose frontend is owned by the Universal Workspace Runtime ('*' = all, '' = none). */
+  universalRuntimeWorkspaces?: string[];
 };
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
@@ -32,5 +35,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return { nodeEnv:v.NODE_ENV, host:v.HOST, port:v.PORT, databaseUrl:v.DATABASE_URL, cookieName:v.SESSION_COOKIE_NAME,
     sessionTtlMinutes:v.SESSION_TTL_MINUTES, allowedOrigins:v.ALLOWED_ORIGINS.split(',').map(x=>x.trim()).filter(Boolean),
     trustProxy:v.TRUST_PROXY==='true', logLevel:v.LOG_LEVEL, logDirectory:v.LOG_DIRECTORY,
-    logToFile:v.LOG_TO_FILE==='true', logMaxSizeMb:v.LOG_MAX_SIZE_MB, logRetentionDays:v.LOG_RETENTION_DAYS, portalRolloutMode:v.PORTAL_ROLLOUT_MODE };
+    logToFile:v.LOG_TO_FILE==='true', logMaxSizeMb:v.LOG_MAX_SIZE_MB, logRetentionDays:v.LOG_RETENTION_DAYS, portalRolloutMode:v.PORTAL_ROLLOUT_MODE,
+    universalRuntimeWorkspaces:v.UNIVERSAL_RUNTIME_WORKSPACES.split(',').map(x=>x.trim()).filter(Boolean) };
 }

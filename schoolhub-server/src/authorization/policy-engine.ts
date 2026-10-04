@@ -28,9 +28,8 @@ export type RecordSecurityContext=Readonly<{
   tabKey?:'MAIN'|'GRID_1'|'GRID_2'|'GRID_3';
 }>;
 
-export type WorkspaceTabKey='MAIN'|'GRID_1'|'GRID_2'|'GRID_3';
-const WORKSPACE_TAB_KEYS:readonly WorkspaceTabKey[]=['MAIN','GRID_1','GRID_2','GRID_3'];
-export function defaultTabForResource(workspaceKey:string,resourceType:string):WorkspaceTabKey{const index=workspaceManifest(workspaceKey).findIndex(resource=>resource.resourceType===resourceType);return WORKSPACE_TAB_KEYS[index]||'MAIN'}
+import {defaultTabForResource,type WorkspaceTabKey} from './workspace-tab-resources.js';
+export {defaultTabForResource,type WorkspaceTabKey};
 export function grantAppliesToTab(grant:Pick<EffectiveGrant,'constraints'>,tabKey:WorkspaceTabKey,resourceDefaultTab:WorkspaceTabKey='MAIN'){return grant.constraints.tabKey?grant.constraints.tabKey===tabKey:tabKey===resourceDefaultTab}
 
 type RelationshipContext={

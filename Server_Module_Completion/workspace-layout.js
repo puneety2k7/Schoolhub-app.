@@ -137,7 +137,10 @@ function ensureWorkspace(section,id,key){
  if(isVisible(section))renderRuntime(state);
 }
 
-function ensureAll(){for(const [id,key] of Object.entries(pageKeys)){const section=document.getElementById(id);if(section)ensureWorkspace(section,id,key)}}
+/* This module is the legacy Dashboard/tab owner. It must not touch a workspace owned (or not yet decided) by the
+   Universal Workspace Runtime: one workspace has exactly one frontend owner. */
+const legacyOwned=id=>{const mode=window.schoolHubRuntimeMode?.modeOf(id);return!mode||mode==='legacy'};
+function ensureAll(){for(const [id,key] of Object.entries(pageKeys)){const section=document.getElementById(id);if(section&&legacyOwned(id))ensureWorkspace(section,id,key)}}
 async function getModel(key){return request('/'+encodeURIComponent(key))}
 async function getRows(state,sourceTab){
  if(state.rows.has(sourceTab))return state.rows.get(sourceTab);
@@ -326,5 +329,18 @@ let queued=false;function schedule(){if(queued)return;queued=true;requestAnimati
 new MutationObserver(schedule).observe(document.documentElement,{subtree:true,childList:true,attributes:true,attributeFilter:['class','style']});
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ensureAll);else ensureAll();
 function refresh(){for(const state of states.values()){state.loaded=false;state.model=null;state.rows.clear()}ensureAll();for(const state of states.values())if(isVisible(state.section))renderRuntime(state)}
-window.schoolHubWorkspaceDashboard=Object.freeze({mountAdminEditor,openManager,refresh});
+/* Shared dashboard renderer for the Universal Workspace Runtime: renders the configured dashboard into a host
+   element it does not own the surrounding shell of. Data still comes through the permission-checked endpoints. */
+async function mountDashboard(host,workspaceKey){
+ if(!host)return;const state={key:workspaceKey,rows:new Map(),filters:{},host};
+ host.innerHTML='<div class="ul-loading">Loading dashboard…</div>';
+ try{
+  const model=await getModel(workspaceKey);state.model=model;
+  host.innerHTML='<div class="ul-dashboard-head"><div><span>WORKSPACE DASHBOARD</span><h2>'+esc(model.name)+'</h2><p>Configured in Workspace Manager from authorized workspace fields.</p></div>'+(model.canManage?'<button type="button" class="btn" data-ul-open-manager>Configure in Workspace Manager</button>':'')+'</div><div class="ul-runtime"></div>';
+  host.querySelector('[data-ul-open-manager]')?.addEventListener('click',()=>openManager(model.workspaceId));
+  await renderComponents(host.querySelector('.ul-runtime'),model,model.layout,state);
+ }catch(error){host.innerHTML='<div class="ul-error"><b>Dashboard could not be loaded.</b><span>'+esc(error.message||error)+'</span></div>'}
+}
+window.schoolHubRuntimeMode?.onChange(schedule);
+window.schoolHubWorkspaceDashboard=Object.freeze({mountAdminEditor,openManager,refresh,mountDashboard});
 })();

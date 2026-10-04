@@ -8176,6 +8176,9 @@ function refName(list,id){return list.find(x=>String(x.id)===String(id))?.name||
 function canServer(permission){return serverUser?.role==='System Administrator'||(serverUser?.permissions||[]).includes(permission)}
 const STUDENT_WORKSPACE_TAB_KEYS=['MAIN','GRID_1','GRID_2','GRID_3'];
 const studentWorkspaceUi={activeTab:'MAIN',definition:null,editDefinition:null,editingStudentId:null,createTab:'MAIN'};
+/* When the Universal Workspace Runtime owns Students, this native code only supplies the Main Tab content and its
+   domain operation adapters: the universal runtime owns the tab bar, Grid tabs 1-3 and every standard action control. */
+const studentsUniversal=()=>window.schoolHubRuntimeMode?.modeOf('students')==='universal';
 function studentWorkspaceDefaultLabel(key){return({MAIN:'Main Tab',GRID_1:'Grid Tab 1',GRID_2:'Grid Tab 2',GRID_3:'Grid Tab 3'})[key]||key}
 function studentWorkspaceTabLabel(key){return studentWorkspaceUi.definition?.tabConfiguration?.[key]||studentWorkspaceDefaultLabel(key)}
 async function loadStudentWorkspaceDefinition(view='record',refresh=false){
@@ -8187,11 +8190,12 @@ async function loadStudentWorkspaceDefinition(view='record',refresh=false){
 }
 function renderStudentWorkspaceTabs(){
  const host=$('studentWorkspaceTabs');if(!host)return;
+ if(studentsUniversal()){host.hidden=true;return}
  const visible=new Set(studentWorkspaceUi.definition?.visibleTabKeys||STUDENT_WORKSPACE_TAB_KEYS);
  host.innerHTML=STUDENT_WORKSPACE_TAB_KEYS.filter(key=>visible.has(key)).map(key=>'<button type="button" class="'+(studentWorkspaceUi.activeTab===key?'active':'')+'" onclick="showStudentWorkspaceTab(\''+key+'\')">'+esc(studentWorkspaceTabLabel(key))+'</button>').join('')
 }
 function setStudentWorkspacePane(tabKey){
- const main=tabKey==='MAIN';
+ const main=studentsUniversal()||tabKey==='MAIN';
  if($('studentMainFilters'))$('studentMainFilters').style.display=main?'':'none';
  if($('studentMainTable'))$('studentMainTable').style.display=main?'':'none';
  if($('studentCards'))$('studentCards').style.display=main?'':'none';
@@ -8219,6 +8223,7 @@ function renderStudentWorkspaceGrid(personal){
  renderStudentUniversalActions(personal).catch(error=>console.error('Student workspace actions could not be rendered.',error))
 }
 window.showStudentWorkspaceTab=async function(tabKey){
+ if(studentsUniversal())return;
  const visible=new Set(studentWorkspaceUi.definition?.visibleTabKeys||[]);if(!STUDENT_WORKSPACE_TAB_KEYS.includes(tabKey)||(visible.size&&!visible.has(tabKey)))return;
  studentWorkspaceUi.activeTab=tabKey;renderStudentWorkspaceTabs();setStudentWorkspacePane(tabKey);await renderServerStudents()
 };
@@ -8250,15 +8255,18 @@ window.saveStudentGridEditor=async function(){
  for(const field of fields){const element=$('studentGridField_'+field.fieldKey);if(!element)continue;if(['image','pdf'].includes(field.fieldType))customValues[field.fieldKey]=await window.schoolHubUniversalWorkspaces.readFieldValue(field,element);else if(['boolean','checkbox'].includes(field.fieldType))customValues[field.fieldKey]=element.checked;else if(field.fieldType==='multiSelect')customValues[field.fieldKey]=[...element.selectedOptions].map(option=>option.value);else if(['integer','decimal','currency'].includes(field.fieldType))customValues[field.fieldKey]=element.value===''?null:Number(element.value);else customValues[field.fieldKey]=element.value===''?null:element.value}
  try{await request('/api/v1/operational-workspaces/students/tabs/'+encodeURIComponent(studentWorkspaceUi.activeTab)+'/records/'+encodeURIComponent(studentId),{method:'PATCH',body:{version:studentVersions.get(studentId),customValues},mutation:true});closeModal();await renderServerStudents();showToast(studentWorkspaceTabLabel(studentWorkspaceUi.activeTab)+' saved.')}catch(error){alert(error.message)}
 };
-function registerStudentActionAdapters(){const api=window.schoolHubWorkspaceActions;if(!api)return;api.register('students','view',context=>viewStudent(context.recordId));api.register('students','add',context=>{studentWorkspaceUi.createTab=context.tab||studentWorkspaceUi.activeTab||'MAIN';openStudent()});api.register('students','edit',context=>editStudent(context.recordId));api.register('students','print',context=>printStudent(context.recordId));api.register('students','archive',context=>deleteStudent(context.recordId,true));api.register('students','restore',context=>restoreStudent(context.recordId,true));api.register('students','permanent-delete',async context=>{await request('/api/v1/access-management/standardized/workspaces/'+encodeURIComponent(context.model.workspaceId)+'/records/'+encodeURIComponent(context.recordId),{method:'DELETE',body:{confirmation:'DELETE'},mutation:true});await refreshServerStudentConsumers();showToast('Student permanently deleted.')})}
+function registerStudentActionAdapters(){const api=window.schoolHubWorkspaceActions;if(!api)return;const reg=(operation,handler)=>{api.register('students',operation,handler);api.register('students',operation,handler,{tabs:['MAIN']})};reg('view',context=>viewStudent(context.recordId));reg('add',context=>{studentWorkspaceUi.createTab=context.tab||studentWorkspaceUi.activeTab||'MAIN';openStudent()});reg('edit',context=>editStudent(context.recordId));reg('print',context=>printStudent(context.recordId));reg('archive',context=>deleteStudent(context.recordId,true));reg('restore',context=>restoreStudent(context.recordId,true));reg('permanent-delete',async context=>{await request('/api/v1/access-management/standardized/workspaces/'+encodeURIComponent(context.model.workspaceId)+'/records/'+encodeURIComponent(context.recordId),{method:'DELETE',body:{confirmation:'DELETE'},mutation:true});await refreshServerStudentConsumers();showToast('Student permanently deleted.')})}
+document.addEventListener('DOMContentLoaded',()=>window.schoolHubUniversalWorkspaces?.registerMain('students',{kind:'native-content',onActivate:()=>window.renderStudents()}));
 async function renderStudentUniversalActions(students){const api=window.schoolHubWorkspaceActions;if(!api)return;registerStudentActionAdapters();const tab=studentWorkspaceUi.activeTab,toolbar=tab==='MAIN'?$('studentUniversalToolbar'):$('studentGridPane')?.querySelector('[data-student-wa-toolbar]'),tasks=[];if(toolbar)tasks.push(api.render(toolbar,'students',{tab,placements:['workspaceHeader','sectionHeader'],recordState:'None'}));const selector=tab==='MAIN'?'[data-student-main-action-host]':'[data-student-wa-record]';for(const host of document.querySelectorAll(selector)){const id=host.dataset.studentMainActionHost||host.dataset.studentWaRecord,student=students.find(item=>String(item.id)===String(id));if(student)tasks.push(api.render(host,'students',{tab,placements:['row','overflow'],recordState:student.status,context:{recordId:student.id,record:student}}))}await Promise.all(tasks)}
 function serverStudentActions(s){const admission=canServer('students:view')?'<button class="btn small" onclick="openAdmissionForm(\''+esc(s.id)+'\')">Admission Form</button> ':'';return admission+'<span class="quick" data-student-main-action-host="'+esc(s.id)+'"></span>'}
 async function renderServerStudents(){
- const body=$('studentRows');if(!body)return;if(cache.lastRequest)cache.lastRequest.abort();cache.lastRequest=new AbortController();const controller=cache.lastRequest;body.innerHTML='<tr><td colspan="7">Loading authorized server records…</td></tr>';
+ const body=$('studentRows');if(!body)return;
+ if(studentsUniversal()){if(window.schoolHubUniversalWorkspaces?.activeTab?.('students')!=='MAIN')return;studentWorkspaceUi.activeTab='MAIN'}
+ if(cache.lastRequest)cache.lastRequest.abort();cache.lastRequest=new AbortController();const controller=cache.lastRequest;body.innerHTML='<tr><td colspan="7">Loading authorized server records…</td></tr>';
  try{
   if(!cache.classes.length)await refs();populatePilotStudentRefs();
   const definition=await loadStudentWorkspaceDefinition('record',true),visible=definition.visibleTabKeys||[];
-  if(!visible.includes(studentWorkspaceUi.activeTab))studentWorkspaceUi.activeTab=visible[0]||'MAIN';
+  if(!studentsUniversal()&&!visible.includes(studentWorkspaceUi.activeTab))studentWorkspaceUi.activeTab=visible[0]||'MAIN';
   const q={search:$('studentSearch')?.value||'',classId:$('studentFilterClass')?.value||'',sectionId:$('studentFilterSection')?.value||'',status:$('studentFilterStatus')?.value||'',page:'1',pageSize:'100'},grid=studentWorkspaceUi.activeTab!=='MAIN',path=grid?'/api/v1/operational-workspaces/students/tabs/'+encodeURIComponent(studentWorkspaceUi.activeTab)+'/records':'/api/v1/students',model=await request(path+'?'+new URLSearchParams(q),{controller}),authorized=[...(model.items||[])];
   for(let page=2;authorized.length<model.total;page++){const more=await request(path+'?'+new URLSearchParams({...q,page:String(page)}),{controller});if(!more.items?.length)break;authorized.push(...more.items)}
   if(controller.signal.aborted)return;cache.students=[...new Map(authorized.map(item=>[item.id,item])).values()];studentVersions=new Map(cache.students.map(item=>[item.id,item.version]));
@@ -9182,13 +9190,13 @@ async function saveResource(kind){
  busy[kind]=true;try{
   await request(kind,id?'/'+encodeURIComponent(id):'',{method:id?'PATCH':'POST',body:id?{data,version:old.version}:data,mutation:true});
   if(uniform){__unfPendingImage=null;__unfPendingDoc=null;__unfPendingDocName=null;}else{__curPendingImage=null;__curPendingDoc=null;__curPendingDocName=null;}
-  closeModal();await load(kind);
+  closeModal();await load(kind);window.dispatchEvent(new CustomEvent('schoolhub:workspace-data-changed',{detail:{workspaceKey:kind}}));
  }catch(e){alert(e.message);}finally{busy[kind]=false;}
 }
-async function remove(kind,id){
+async function remove(kind,id,confirmed=false){
  if(!ready[kind]||busy[kind])return;const row=state[keys[kind]].find(r=>r.id===id);if(!row)return;
- if(!confirm('Delete "'+(row.name||row.class)+'" and its attachments from the active list?'))return;
- busy[kind]=true;try{await request(kind,'/'+encodeURIComponent(id)+'/remove',{method:'POST',body:{version:row.version},mutation:true});await load(kind);}catch(e){alert(e.message);}finally{busy[kind]=false;}
+ if(!confirmed&&!confirm('Delete "'+(row.name||row.class)+'" and its attachments from the active list?'))return;
+ busy[kind]=true;try{await request(kind,'/'+encodeURIComponent(id)+'/remove',{method:'POST',body:{version:row.version},mutation:true});await load(kind);window.dispatchEvent(new CustomEvent('schoolhub:workspace-data-changed',{detail:{workspaceKey:kind}}));}catch(e){alert(e.message);}finally{busy[kind]=false;}
 }
 replace('saveUniform',()=>saveResource('uniform'));replace('saveCurriculum',()=>saveResource('curriculum'));
 replace('deleteUniform',id=>remove('uniform',id));replace('deleteCurriculum',id=>remove('curriculum',id));
@@ -9197,6 +9205,16 @@ replace('openAddCurriculum',function(){if(!ready.curriculum)return alert('Wait f
 replace('openEditCurriculum',function(id){const row=state.curriculumEntries.find(r=>r.id===id);if(!row)return;__curPendingImage=null;__curPendingDoc=null;__curPendingDocName=null;openModal('Edit Curriculum',curriculumModalBody(row));fillClasses(row.class,row.subjects);});
 const priorShow=window.showTab;window.showTab=function(tab){const result=priorShow.apply(this,arguments);if(active()&&keys[tab]){$(tab)?.querySelectorAll('.phase7-local-only').forEach(x=>x.remove());load(tab).catch(e=>{const host=$(keys[tab]);if(host)host.textContent=e.message;});}return result;};
 window.schoolHubResourceServer=Object.freeze({handles:tab=>!!keys[tab],load});
+/* Uniform MAIN adapter for the Universal Workspace Runtime: supplies this workspace's domain records and operations
+   only. The universal runtime decides which standard controls exist; the native modal/print functions are reused as
+   operation adapters. The server keeps no archived-record listing for this workspace, so Restore and Permanent
+   Delete are not offered (they are not in `supports`). */
+document.addEventListener('DOMContentLoaded',()=>window.schoolHubUniversalWorkspaces?.registerMain('uniform',{
+ kind:'records',description:'School uniform categories.',supports:['view','add','edit','print','archive'],
+ columns:[{key:'name',label:'Category'},{key:'description',label:'Description',render:value=>esc(String(value||'').replace(/<[^>]*>/g,' ').trim().slice(0,160))||'—'},{key:'image',label:'Image',render:value=>value?'<img class="uw-value-image" src="'+esc(value)+'" alt="">':'—'},{key:'document',label:'Document',render:value=>esc(value||'—')}],
+ list:async()=>{await load('uniform');return{items:(state[keys.uniform]||[]).map(row=>({id:row.id,version:row.version,status:'Active',values:{name:row.name,description:row.description,image:row.image,document:row.documentName}}))}},
+ operations:{view:context=>viewUniform(context.recordId),add:()=>openAddUniform(),edit:context=>openEditUniform(context.recordId),print:context=>printUniform(context.recordId),archive:context=>remove('uniform',context.recordId,true)}
+}));
 if(active())for(const key of Object.values(keys))state[key]=[];
 })();
 </script>
@@ -9349,6 +9367,7 @@ window.schoolHubReportsServer=Object.freeze({active,handles:tab=>tab==='reports'
 <link rel="stylesheet" href="Server_Module_Completion/phase20-specialist-operations.css">
 <script src="Server_Module_Completion/phase20-specialist-operations.js"></script>
 <link rel="stylesheet" href="Server_Module_Completion/workspace-layout.css">
+<script src="Server_Module_Completion/workspace-runtime-mode.js"></script>
 <script src="Server_Module_Completion/workspace-layout-core.js"></script>
 <script src="Server_Module_Completion/universal-workspace-tabs.js"></script>
 <script src="Server_Module_Completion/workspace-layout.js"></script>
