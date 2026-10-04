@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SchoolHub V2 — UX Prototype (mock data)</title>
+<style>
+:root{--bg:#f4f6fb;--surface:#fff;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--brand:#2548d8;--brand-soft:#eef2ff;--danger:#c0262d;--ok:#157f4b;--side:#0f172a;--r:12px}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;font-size:14px;line-height:1.45;color:var(--ink);background:var(--bg)}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:240px 1fr 300px;min-height:100vh}
+.app.no-sim{grid-template-columns:240px 1fr 0}
+.sidebar{background:var(--side);color:#cbd5e1;padding:16px 10px;display:flex;flex-direction:column;gap:2px;position:sticky;top:0;height:100vh}
+.brand{color:#fff;font-weight:700;font-size:18px;padding:4px 10px 14px}.brand span{color:#7c9bff}
+.group{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#64748b;padding:14px 10px 4px}
+.nav{background:none;border:0;text-align:left;color:inherit;padding:9px 10px;border-radius:8px;cursor:pointer;width:100%}
+.nav:hover{background:#1e293b}.nav.active{background:var(--brand);color:#fff}
+.side-foot{margin-top:auto;padding:10px;font-size:12px;color:#94a3b8;border-top:1px solid #1e293b}
+.main{padding:22px 28px;min-width:0}
+.banner{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:8px 12px;margin-bottom:16px;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.banner .grow{flex:1}
+h1{font-size:24px;margin:0 0 2px}h2{font-size:18px;margin:0 0 10px}h3{font-size:15px;margin:0 0 8px}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.muted{color:var(--muted)}.small{font-size:12px}.center{text-align:center}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:16px 0;flex-wrap:wrap}
+.tab{background:none;border:0;border-bottom:2px solid transparent;padding:10px 16px;cursor:pointer;color:var(--muted);margin-bottom:-1px}
+.tab:hover{color:var(--ink)}.tab.active{color:var(--brand);border-color:var(--brand);font-weight:600}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:16px;margin-bottom:14px}
+.btn{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:#b6c0d4;background:#f8fafc}.btn:focus-visible,.nav:focus-visible,.tab:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff}.btn.primary:hover{background:#1c3bb8}
+.btn.danger{color:var(--danger);border-color:#f1b8bb}.btn.danger:hover{background:#fef2f2}
+.btn.small{padding:4px 10px;font-size:12px}.btn:disabled{opacity:.5;cursor:not-allowed}
+.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}.toolbar h2{margin:0;flex:1;min-width:140px}
+.input,input[type=text],input[type=number],input[type=date],select,textarea{border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff;width:100%}
+.toolbar input,.toolbar select{width:auto;min-width:150px}
+input:focus,select:focus,textarea:focus{outline:2px solid #c7d2fe;border-color:var(--brand)}
+.table-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);overflow:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:#f8fafc;white-space:nowrap}
+tr:last-child td{border-bottom:0}tbody tr:hover{background:#fafbff}
+tr.archived td{color:var(--muted)}
+.actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.badge{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11px;font-weight:600;background:var(--brand-soft);color:#3730a3}
+.badge.archived{background:#f1f5f9;color:#475569}
+.notice{border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:10px 14px;margin:8px 0}
+.notice.warn{border-color:#fde68a;background:#fffbeb}.notice.err{border-color:#fecaca;background:#fef2f2;color:#991b1b}
+.grid2{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.metric{font-size:42px;font-weight:700;color:var(--brand);line-height:1.1}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.5);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+.dialog{background:#fff;border-radius:14px;width:min(620px,100%);max-height:90vh;display:flex;flex-direction:column;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+.dialog header,.dialog footer{padding:14px 18px;display:flex;align-items:center;gap:8px}.dialog header{border-bottom:1px solid var(--line);justify-content:space-between}.dialog header h3{margin:0}
+.dialog footer{border-top:1px solid var(--line);justify-content:flex-end}.dialog .body{padding:16px 18px;overflow:auto}
+.form-section{margin-bottom:14px}.form-section h4{margin:0 0 8px;font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.field label{display:block;font-size:12px;font-weight:600;margin-bottom:4px}.field .ro{padding:8px 0}
+.check{display:inline-flex;gap:6px;align-items:center;cursor:pointer}.check input{width:auto}
+.sim{background:#fff;border-left:1px solid var(--line);padding:16px;position:sticky;top:0;height:100vh;overflow:auto}
+.app.no-sim .sim{display:none}
+.perm-grid{display:grid;grid-template-columns:70px repeat(5,1fr);gap:4px 2px;align-items:center;font-size:11px;margin:8px 0}
+.perm-grid .h{color:var(--muted);text-align:center;font-weight:600}.perm-grid .c{text-align:center}
+.pill-row{display:flex;gap:6px;margin:8px 0}.pill{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:7px;cursor:pointer;text-align:center;font-size:12px}
+.pill.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.mgr-grid .card{overflow:auto}.mgr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:6px 0}.row .grow{flex:1}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;padding:10px 18px;border-radius:10px;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+.print-sheet{display:none}
+@media print{body *{visibility:hidden}.print-sheet,.print-sheet *{visibility:visible}.print-sheet{display:block;position:absolute;left:0;top:0;padding:24px}}
+@media (max-width:1100px){.app,.app.no-sim{grid-template-columns:200px 1fr}.sim{grid-column:1/-1;position:static;height:auto;border-left:0;border-top:1px solid var(--line)}}
+@media (max-width:760px){.app,.app.no-sim{grid-template-columns:1fr}.sidebar{position:static;height:auto;flex-direction:row;flex-wrap:wrap;align-items:center}.group,.side-foot{display:none}.main{padding:14px}.mgr-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="print" class="print-sheet"></div>
+
+<script>
+/* ============================================================
+   SchoolHub V2 — UX prototype. MOCK DATA ONLY: no backend, no database, no old SchoolHub code.
+   One universal workspace runtime renders every tab from configuration; the Workspace Manager edits that same configuration.
+   ============================================================ */
+const TABS=['DASHBOARD','MAIN','GRID_1','GRID_2','GRID_3'], RTABS=['MAIN','GRID_1','GRID_2','GRID_3'];
+const OPS=['view','add','edit','print','archive','restore','permanent_delete'];
+const OPLABEL={view:'View',add:'Add',edit:'Edit',print:'Print',archive:'Archive',restore:'Restore',permanent_delete:'Permanent Delete'};
+/* The universal lifecycle: which standard actions exist for which record state ('None' = tab toolbar). */
+const LIFECYCLE={add:['None'],view:['Active','Archived'],edit:['Active'],print:['Active','Archived'],archive:['Active'],restore:['Archived'],permanent_delete:['Archived']};
+const NORMAL=['VIEW','ADD','EDIT','DELETE','PRINT'];
+const FIELD_TYPES={text:'Text',long_text:'Long text',number:'Number',date:'Date',choice:'Choice list',yesno:'Yes / No'};
+let uid=100;const nid=p=>p+(++uid);
+
+const fresh=()=>({
+  role:'admin',            // 'admin' = System Administrator, 'user' = ordinary user
+  simOpen:true, screen:'workspace', tab:'MAIN', mgrTab:'MAIN', search:'', filters:{},
+  perms:{DASH:true,
+    MAIN:{VIEW:true,ADD:true,EDIT:true,DELETE:true,PRINT:true},
+    GRID_1:{VIEW:true,ADD:true,EDIT:true,DELETE:true,PRINT:true},
+    GRID_2:{VIEW:true,ADD:true,EDIT:true,DELETE:true,PRINT:true},
+    GRID_3:{VIEW:true,ADD:true,EDIT:true,DELETE:true,PRINT:true},
+    VIEW_ARCHIVED_RECORDS:false,RESTORE_ARCHIVED_RECORDS:false,PERMANENT_DELETE:false},
+  cfg:{
+    name:'Test Workspace',plural:'Test Workspaces',
+    labels:{DASHBOARD:'Dashboard',MAIN:'Main',GRID_1:'Grid 1',GRID_2:'Grid 2',GRID_3:'Grid 3'},
+    sections:{MAIN:['Details'],GRID_1:['Details'],GRID_2:['Details','Notes'],GRID_3:['Details']},
+    fields:[
+      {id:'f1',tab:'MAIN',section:'Details',label:'Main Test Field',type:'text',required:true,readOnly:false,visible:true,searchable:true,filterable:false,print:true},
+      {id:'f2',tab:'MAIN',section:'Details',label:'Amount',type:'number',required:false,readOnly:false,visible:true,searchable:false,filterable:false,print:true},
+      {id:'f3',tab:'MAIN',section:'Details',label:'Status',type:'choice',options:'Open,In progress,Done',required:false,readOnly:false,visible:true,searchable:false,filterable:true,print:true},
+      {id:'f4',tab:'GRID_1',section:'Details',label:'Grid 1 Test Field',type:'text',required:true,readOnly:false,visible:true,searchable:true,filterable:false,print:true},
+      {id:'f5',tab:'GRID_1',section:'Details',label:'Quantity',type:'number',required:false,readOnly:false,visible:true,searchable:false,filterable:false,print:true},
+      {id:'f6',tab:'GRID_2',section:'Details',label:'Grid 2 Test Field',type:'text',required:true,readOnly:false,visible:true,searchable:true,filterable:false,print:true},
+      {id:'f7',tab:'GRID_2',section:'Details',label:'Due date',type:'date',required:false,readOnly:false,visible:true,searchable:false,filterable:false,print:true},
+      {id:'f8',tab:'GRID_2',section:'Notes',label:'Notes',type:'long_text',required:false,readOnly:false,visible:true,searchable:false,filterable:false,print:false},
+      {id:'f9',tab:'GRID_3',section:'Details',label:'Grid 3 Test Field',type:'text',required:true,readOnly:false,visible:true,searchable:true,filterable:false,print:true}],
+    formOn:{GRID_2:true},formName:'Grid 2 Form',
+    actions:Object.fromEntries(RTABS.map(t=>[t,Object.fromEntries(OPS.map(o=>[o,true]))])),
+    dash:{metricTab:'MAIN',metricAgg:'count',tableTab:'GRID_1',tableField:'f4'}},
+  recs:{
+    MAIN:[{id:'m1',state:'Active',v:{f1:'Sample main record A',f2:120,f3:'Open'}},{id:'m2',state:'Active',v:{f1:'Sample main record B',f2:75,f3:'In progress'}},{id:'m3',state:'Archived',v:{f1:'Old main record (archived)',f2:10,f3:'Done'}}],
+    GRID_1:[{id:'g1a',state:'Active',v:{f4:'Grid 1 record A',f5:4}},{id:'g1b',state:'Active',v:{f4:'Grid 1 record B',f5:9}}],
+    GRID_2:[{id:'g2a',state:'Active',v:{f6:'Grid 2 record A',f7:'2026-11-01',f8:'First note'}},{id:'g2b',state:'Archived',v:{f6:'Grid 2 record (archived)'}}],
+    GRID_3:[{id:'g3a',state:'Active',v:{f9:'Grid 3 record A'}}]}
+});
+let S=fresh(), dialog=null, toastTimer=null;
+
+/* ---------------- permission engine (mock of the real one) ---------------- */
+const admin=()=>S.role==='admin';
+const canTab=(t,p)=>admin()||S.perms[t][p];
+const special=k=>admin()||S.perms[k];
+const canDash=()=>admin()||S.perms.DASH;
+/* Standard action → required permissions (Restore needs VIEW + VIEW_ARCHIVED + RESTORE; Permanent Delete needs DELETE + PERMANENT_DELETE). */
+function allowed(op,t){
+  switch(op){
+    case 'view':return canTab(t,'VIEW'); case 'add':return canTab(t,'ADD'); case 'edit':return canTab(t,'EDIT'); case 'print':return canTab(t,'PRINT');
+    case 'archive':return canTab(t,'DELETE');
+    case 'restore':return canTab(t,'VIEW')&&special('VIEW_ARCHIVED_RECORDS')&&special('RESTORE_ARCHIVED_RECORDS');
+    case 'permanent_delete':return canTab(t,'DELETE')&&special('PERMANENT_DELETE');}
+}
+/* The action engine: configured-enabled ∩ permitted ∩ lifecycle(state). Nothing is inferred from the page. */
+const actionsFor=(t,state)=>OPS.filter(op=>S.cfg.actions[t][op]&&allowed(op,t)&&LIFECYCLE[op].includes(state));
+const visibleTabs=()=>TABS.filter(t=>t==='DASHBOARD'?canDash():canTab(t,'VIEW'));
+const seesArchived=()=>special('VIEW_ARCHIVED_RECORDS');
+
+/* ---------------- helpers ---------------- */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fieldsOf=t=>S.cfg.fields.filter(f=>f.tab===t);
+const shown=t=>fieldsOf(t).filter(f=>f.visible);
+const show=(f,v)=>v===undefined||v===null||v===''?'—':f.type==='yesno'?(v?'Yes':'No'):esc(v);
+const toast=m=>{clearTimeout(toastTimer);let el=document.getElementById('toast');if(!el){el=document.createElement('div');el.id='toast';el.className='toast';document.body.append(el)}el.textContent=m;toastTimer=setTimeout(()=>el.remove(),2200)};
+function ensureTab(){const v=visibleTabs();if(!v.includes(S.tab))S.tab=v[0]||null}
+
+/* ---------------- field renderer (one for every field type) ---------------- */
+function inputFor(f,val,ro){
+  if(ro||f.readOnly)return `<div class="ro" data-ro="${f.id}">${show(f,val)}</div>`;
+  const id='in_'+f.id, req=f.required?' required':'';
+  if(f.type==='long_text')return `<textarea id="${id}" rows="3">${esc(val)}</textarea>`;
+  if(f.type==='number')return `<input id="${id}" type="number" value="${esc(val)}"${req}>`;
+  if(f.type==='date')return `<input id="${id}" type="date" value="${esc(val)}"${req}>`;
+  if(f.type==='yesno')return `<label class="check"><input id="${id}" type="checkbox" ${val?'checked':''}> Yes</label>`;
+  if(f.type==='choice')return `<select id="${id}"><option value="">Select…</option>${(f.options||'').split(',').map(o=>o.trim()).filter(Boolean).map(o=>`<option ${o===val?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  return `<input id="${id}" type="text" value="${esc(val)}"${req}>`;
+}
+function readInputs(t){
+  const out={};
+  for(const f of shown(t)){if(f.readOnly)continue;const el=document.getElementById('in_'+f.id);if(!el)continue;
+    out[f.id]=f.type==='yesno'?el.checked:f.type==='number'?(el.value===''?'':Number(el.value)):el.value}
+  return out;
+}
+
+/* ---------------- records tab: Toolbar + Grid + ActionRenderer (same for MAIN and every Grid) ---------------- */
+function recordsTab(t){
+  const cols=shown(t), all=S.recs[t].filter(r=>r.state==='Active'||seesArchived());
+  const needle=S.search.trim().toLowerCase(), sf=cols.filter(f=>f.searchable);
+  let rows=all.filter(r=>!needle||sf.some(f=>String(r.v[f.id]??'').toLowerCase().includes(needle)));
+  for(const f of cols.filter(f=>f.filterable)){const q=(S.filters[f.id]||'').toLowerCase();if(q)rows=rows.filter(r=>String(r.v[f.id]??'').toLowerCase().includes(q))}
+  const toolbarOps=actionsFor(t,'None');
+  return `<div data-testid="tab-${t}">
+   <div class="toolbar"><h2>${esc(S.cfg.labels[t])}</h2>
+    ${sf.length?`<input id="search" type="text" placeholder="Search ${esc(sf.map(f=>f.label).join(', '))}…" value="${esc(S.search)}" aria-label="Search">`:''}
+    ${cols.filter(f=>f.filterable).map(f=>`<input data-filter="${f.id}" type="text" placeholder="Filter ${esc(f.label)}" value="${esc(S.filters[f.id]||'')}" aria-label="Filter ${esc(f.label)}">`).join('')}
+    ${toolbarOps.map(op=>`<button class="btn primary" data-op="${op}" data-tab="${t}">${OPLABEL[op]}</button>`).join('')}</div>
+   ${!cols.length?`<div class="notice">No fields are configured for this tab. Add them in Workspace Manager.</div>`:`
+   <div class="table-wrap"><table><thead><tr>${cols.map(f=>`<th>${esc(f.label)}</th>`).join('')}<th style="text-align:right">Actions</th></tr></thead><tbody>
+    ${rows.map(r=>`<tr class="${r.state==='Archived'?'archived':''}" data-record="${r.id}" data-state="${r.state}">
+      ${cols.map(f=>`<td>${show(f,r.v[f.id])}</td>`).join('')}
+      <td><div class="actions">${r.state==='Archived'?'<span class="badge archived">Archived</span>':''}${actionsFor(t,r.state).map(op=>`<button class="btn small${op==='archive'||op==='permanent_delete'?' danger':''}" data-op="${op}" data-tab="${t}" data-id="${r.id}">${OPLABEL[op]}</button>`).join('')}</div></td></tr>`).join('')}
+    ${!rows.length?`<tr><td colspan="${cols.length+1}" class="center muted">No records.</td></tr>`:''}</tbody></table></div>`}
+  </div>`;
+}
+
+/* ---------------- dashboard engine: Metric + Table, each honouring its SOURCE tab's permission ---------------- */
+function dashboard(){
+  const d=S.cfg.dash, out=[];
+  if(!canTab(d.metricTab,'VIEW'))out.push(`<div class="card"><h3>Metric</h3><p class="muted">You do not have access to this component's source data (${esc(S.cfg.labels[d.metricTab])}).</p></div>`);
+  else{const recs=S.recs[d.metricTab].filter(r=>r.state==='Active');
+    out.push(`<div class="card" data-testid="metric"><h3>Active records in ${esc(S.cfg.labels[d.metricTab])}</h3><div class="metric">${recs.length}</div><p class="muted small">Metric · ${esc(d.metricAgg)}</p></div>`)}
+  if(!canTab(d.tableTab,'VIEW'))out.push(`<div class="card"><h3>Table</h3><p class="muted">You do not have access to this component's source data (${esc(S.cfg.labels[d.tableTab])}).</p></div>`);
+  else{const f=S.cfg.fields.find(x=>x.id===d.tableField)||fieldsOf(d.tableTab)[0], recs=S.recs[d.tableTab].filter(r=>r.state==='Active');
+    out.push(`<div class="card" data-testid="dash-table"><h3>Latest in ${esc(S.cfg.labels[d.tableTab])}</h3><table><thead><tr><th>${esc(f?.label||'')}</th></tr></thead><tbody>${recs.map(r=>`<tr><td>${show(f,r.v[f?.id])}</td></tr>`).join('')||'<tr><td class="muted">No records.</td></tr>'}</tbody></table></div>`)}
+  return `<div class="grid2" data-testid="dashboard">${out.join('')}</div>`;
+}
+
+/* ---------------- workspace shell (universal runtime) ---------------- */
+function workspace(){
+  ensureTab();const tabs=visibleTabs();
+  return `<div class="eyebrow">Mock workspace</div><h1>${esc(S.cfg.plural)}</h1>
+   ${!tabs.length?`<div class="notice warn">You do not have access to any part of this workspace.</div>`:`
+   <div class="tabs" role="tablist">${tabs.map(t=>`<button class="tab ${S.tab===t?'active':''}" role="tab" data-tab-btn="${t}">${esc(S.cfg.labels[t])}</button>`).join('')}</div>
+   ${S.tab==='DASHBOARD'?dashboard():recordsTab(S.tab)}`}
+   ${!canDash()?`<p class="muted small" data-testid="dash-off">Dashboard VIEW is off for this user, so the Dashboard tab is unavailable. Permitted tabs still work.</p>`:''}`;
+}
+
+/* ---------------- Workspace Manager (mock; edits the same configuration the runtime renders) ---------------- */
+function manager(){
+  const t=S.mgrTab, c=S.cfg;
+  const flag=(f,k)=>`<td class="center"><input type="checkbox" data-flag="${f.id}:${k}" ${f[k]?'checked':''} aria-label="${esc(f.label)} ${k}"></td>`;
+  return `<div class="eyebrow">Administration</div><h1>Workspace Manager</h1><p class="muted">Everything the workspace shows is defined here. Changes apply to the workspace immediately (mock state).</p>
+  <div class="mgr-grid"><div class="card"><h3>General</h3>
+    <div class="field"><label>Workspace name</label><input type="text" data-cfg="plural" value="${esc(c.plural)}"></div>
+    <h3 style="margin-top:12px">Tab labels</h3>
+    ${TABS.map(k=>`<div class="row"><span style="width:90px" class="muted small">${k}</span><input type="text" data-label="${k}" value="${esc(c.labels[k])}" aria-label="${k} label"></div>`).join('')}</div>
+  <div class="card"><h3>Standard actions</h3><p class="muted small">Meaning and permissions are universal; only enable or disable per tab.</p>
+    <table><thead><tr><th>Tab</th>${OPS.map(o=>`<th class="center">${OPLABEL[o]}</th>`).join('')}</tr></thead><tbody>
+    ${RTABS.map(k=>`<tr><td>${k}</td>${OPS.map(o=>`<td class="center"><input type="checkbox" data-act="${k}:${o}" ${c.actions[k][o]?'checked':''} aria-label="${k} ${o}"></td>`).join('')}</tr>`).join('')}</tbody></table></div></div>
+  <div class="card"><h3>Tabs, sections and fields</h3>
+    <div class="tabs" style="margin-top:0">${RTABS.map(k=>`<button class="tab ${t===k?'active':''}" data-mgr-tab="${k}">${esc(c.labels[k])}</button>`).join('')}</div>
+    <div class="table-wrap"><table><thead><tr><th>Field</th><th>Type</th><th>Section</th><th>Tab</th><th class="center">Required</th><th class="center">Read only</th><th class="center">Visible</th><th class="center">Searchable</th><th class="center">Filterable</th><th class="center">Print</th></tr></thead><tbody>
+    ${fieldsOf(t).map(f=>`<tr><td><b>${esc(f.label)}</b></td><td>${FIELD_TYPES[f.type]}</td>
+      <td><select data-fsec="${f.id}">${c.sections[t].map(s=>`<option ${s===f.section?'selected':''}>${esc(s)}</option>`).join('')}</select></td>
+      <td><select data-ftab="${f.id}">${RTABS.map(k=>`<option value="${k}" ${k===f.tab?'selected':''}>${esc(c.labels[k])}</option>`).join('')}</select></td>
+      ${flag(f,'required')}${flag(f,'readOnly')}${flag(f,'visible')}${flag(f,'searchable')}${flag(f,'filterable')}${flag(f,'print')}</tr>`).join('')||`<tr><td colspan="10" class="muted center">No fields on this tab.</td></tr>`}</tbody></table></div>
+    <div class="row"><input type="text" id="nf_label" placeholder="New field label" style="max-width:220px"><select id="nf_type" style="max-width:160px">${Object.entries(FIELD_TYPES).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select>
+      <select id="nf_sec" style="max-width:160px">${c.sections[t].map(s=>`<option>${esc(s)}</option>`).join('')}</select><button class="btn primary" data-addfield>Add field to ${esc(c.labels[t])}</button></div>
+    <div class="row"><input type="text" id="ns_name" placeholder="New section name" style="max-width:220px"><button class="btn" data-addsection>Add section</button></div></div>
+  <div class="mgr-grid"><div class="card"><h3>Form assignment</h3>
+    <p class="muted small">A Form arranges a tab's fields in a dialog. The Grid stays visible; the Form never replaces the page.</p>
+    ${['GRID_1','GRID_2','GRID_3'].map(k=>`<div class="row"><label class="check"><input type="checkbox" data-form="${k}" ${c.formOn[k]?'checked':''}> Assign “${esc(c.formName)}” to ${esc(c.labels[k])}</label></div>`).join('')}
+    <div class="row"><span class="muted small">Form name</span><input type="text" data-formname value="${esc(c.formName)}"></div></div>
+  <div class="card"><h3>Dashboard components</h3>
+    <div class="row"><b>Metric</b><select data-dash="metricTab">${RTABS.map(k=>`<option value="${k}" ${c.dash.metricTab===k?'selected':''}>${esc(c.labels[k])}</option>`).join('')}</select><span class="muted small">count of Active records</span></div>
+    <div class="row"><b>Table</b><select data-dash="tableTab">${RTABS.map(k=>`<option value="${k}" ${c.dash.tableTab===k?'selected':''}>${esc(c.labels[k])}</option>`).join('')}</select>
+      <select data-dash="tableField">${fieldsOf(c.dash.tableTab).map(f=>`<option value="${f.id}" ${c.dash.tableField===f.id?'selected':''}>${esc(f.label)}</option>`).join('')}</select></div></div></div>`;
+}
+
+/* ---------------- permission simulator (right panel, visible everywhere) ---------------- */
+function simulator(){
+  const p=S.perms;
+  return `<h3>Permission simulator</h3><p class="muted small">Switch who you are and watch the screen react instantly.</p>
+   <div class="pill-row"><button class="pill ${admin()?'on':''}" data-role="admin">System Administrator</button><button class="pill ${!admin()?'on':''}" data-role="user">Ordinary User</button></div>
+   ${admin()?`<div class="notice">System Administrator automatically holds <b>all</b> permissions (backend authority — nothing is stored or ticked). Lifecycle still applies: no Restore on an Active record, no Archive on an Archived one.</div>`:`
+   <div class="row"><label class="check"><input type="checkbox" data-perm="DASH" ${p.DASH?'checked':''}> <b>Dashboard VIEW</b></label></div>
+   <div class="perm-grid"><span></span>${NORMAL.map(n=>`<span class="h">${n}</span>`).join('')}
+    ${RTABS.map(t=>`<span>${t}</span>${NORMAL.map(n=>`<span class="c"><input type="checkbox" data-perm="${t}:${n}" ${p[t][n]?'checked':''} aria-label="${t} ${n}"></span>`).join('')}`).join('')}</div>
+   <h3 style="margin-top:10px">Archive permissions</h3>
+   ${['VIEW_ARCHIVED_RECORDS','RESTORE_ARCHIVED_RECORDS','PERMANENT_DELETE'].map(k=>`<div class="row"><label class="check"><input type="checkbox" data-perm="${k}" ${p[k]?'checked':''}> ${k}</label></div>`).join('')}
+   <p class="muted small">Restore needs tab VIEW + VIEW_ARCHIVED_RECORDS + RESTORE_ARCHIVED_RECORDS. Permanent Delete needs tab DELETE + PERMANENT_DELETE. Archive needs tab DELETE.</p>`}
+   <hr style="border:0;border-top:1px solid var(--line);margin:14px 0"><button class="btn small" data-reset>Reset demo data</button>`;
+}
+
+/* ---------------- dialogs ---------------- */
+function openForm(mode,t,id){
+  const rec=id?S.recs[t].find(r=>r.id===id):null, ro=mode==='view', formOn=!!S.cfg.formOn[t];
+  const secs=S.cfg.sections[t], groups=(formOn?[{title:S.cfg.formName+' — Details',names:[secs[0]]},...secs.slice(1).map(s=>({title:s,names:[s]}))]:secs.map(s=>({title:s,names:[s]})));
+  const body=groups.map(g=>{const fs=shown(t).filter(f=>g.names.includes(f.section));if(!fs.length)return'';
+    return `<div class="form-section"><h4>${esc(g.title)}</h4><div class="form-grid">${fs.map(f=>`<div class="field"><label>${esc(f.label)}${f.required&&!ro?' *':''}</label>${inputFor(f,rec?rec.v[f.id]:undefined,ro)}</div>`).join('')}</div></div>`}).join('')||'<p class="muted">No fields are configured for this tab.</p>';
+  dialog={type:'form',mode,t,id,html:`<div class="overlay" data-testid="form-dialog" data-mode="${mode}"><div class="dialog" role="dialog" aria-modal="true"><header><h3>${OPLABEL[mode==='add'?'add':mode]} — ${esc(S.cfg.labels[t])}${formOn?' · '+esc(S.cfg.formName):''}</h3><button class="btn small" data-dlg="cancel" aria-label="Close">×</button></header><div class="body">${body}<div id="dlg_err" class="notice err" style="display:none"></div></div><footer><button class="btn" data-dlg="cancel">${ro?'Close':'Cancel'}</button>${ro?'':'<button class="btn primary" data-dlg="save">Save</button>'}</footer></div></div>`};
+  render();
+}
+function saveForm(){
+  const {mode,t,id}=dialog, vals=readInputs(t);
+  const miss=shown(t).find(f=>f.required&&!f.readOnly&&(vals[f.id]===''||vals[f.id]===undefined));
+  if(miss){const e=document.getElementById('dlg_err');e.style.display='block';e.textContent=miss.label+' is required.';return}
+  if(mode==='add')S.recs[t].unshift({id:nid('r'),state:'Active',v:vals});     // created in THIS tab's list only
+  else Object.assign(S.recs[t].find(r=>r.id===id).v,vals);
+  dialog=null;toast(mode==='add'?'Record added to '+S.cfg.labels[t]:'Record updated');render();
+}
+function confirmBox(msg,label,onYes){
+  dialog={type:'confirm',onYes,html:`<div class="overlay" data-testid="confirm"><div class="dialog" role="dialog"><header><h3>Please confirm</h3></header><div class="body"><p>${esc(msg)}</p></div><footer><button class="btn" data-dlg="cancel">Cancel</button><button class="btn danger" data-dlg="yes">${esc(label)}</button></footer></div></div>`};render();
+}
+function printPreview(t,id){
+  const r=S.recs[t].find(x=>x.id===id), rows=fieldsOf(t).filter(f=>f.print).map(f=>`<tr><th style="text-align:left;padding:4px 18px 4px 0">${esc(f.label)}</th><td>${show(f,r.v[f.id])}</td></tr>`).join('');
+  const sheet=`<h2>${esc(S.cfg.plural)} — ${esc(S.cfg.labels[t])}</h2><table>${rows}</table>`;
+  document.getElementById('print').innerHTML=sheet;
+  dialog={type:'print',html:`<div class="overlay" data-testid="print-preview"><div class="dialog"><header><h3>Print preview</h3><button class="btn small" data-dlg="cancel">×</button></header><div class="body">${sheet}<p class="muted small">Only fields marked “Print” in Workspace Manager are included.</p></div><footer><button class="btn" data-dlg="cancel">Close</button><button class="btn primary" data-dlg="print">Print</button></footer></div></div>`};render();
+}
+
+/* ---------------- standard operation dispatch (one function for every tab) ---------------- */
+function invoke(op,t,id){
+  if(!allowed(op,t))return;
+  const rec=id&&S.recs[t].find(r=>r.id===id);
+  if(op==='add')return openForm('add',t);
+  if(op==='view')return openForm('view',t,id);
+  if(op==='edit')return openForm('edit',t,id);
+  if(op==='print')return printPreview(t,id);
+  if(op==='archive')return confirmBox('Archive this record? It will move to Archived and can be restored.','Archive',()=>{rec.state='Archived';toast('Record archived');});
+  if(op==='restore'){rec.state='Active';toast('Record restored');return render()}   // the SAME record becomes Active again
+  if(op==='permanent_delete')return confirmBox('Permanently delete this archived record? This cannot be undone.','Permanently delete',()=>{S.recs[t]=S.recs[t].filter(r=>r.id!==id);toast('Record permanently deleted');});
+}
+
+/* ---------------- app frame + events ---------------- */
+function render(){
+  const scroll=document.querySelector('.main')?.scrollTop||0, focusId=document.activeElement?.id, caret=document.activeElement?.selectionStart;
+  document.getElementById('app').innerHTML=`<div class="app ${S.simOpen?'':'no-sim'}">
+   <aside class="sidebar"><div class="brand">SchoolHub <span>V2</span></div>
+    <div class="group">Workspaces</div><button class="nav ${S.screen==='workspace'?'active':''}" data-screen="workspace">${esc(S.cfg.plural)}</button>
+    <div class="group">Administration</div><button class="nav ${S.screen==='manager'?'active':''}" data-screen="manager">Workspace Manager</button>
+    <div class="side-foot">${admin()?'System Administrator':'Ordinary User'}<br><span class="small">Prototype · mock data</span></div></aside>
+   <main class="main"><div class="banner"><b>UX prototype</b><span class="grow">Mock data only — no backend, no database. Nothing is saved.</span><button class="btn small" data-togglesim>${S.simOpen?'Hide':'Show'} permission simulator</button></div>
+    ${S.screen==='workspace'?workspace():manager()}</main>
+   <aside class="sim">${simulator()}</aside></div>${dialog?dialog.html:''}`;
+  const m=document.querySelector('.main');if(m)m.scrollTop=scroll;
+  if(focusId){const el=document.getElementById(focusId);if(el){el.focus();if(caret!=null)try{el.setSelectionRange(caret,caret)}catch(e){}}}
+}
+document.addEventListener('click',e=>{
+  const b=e.target.closest('[data-op],[data-tab-btn],[data-screen],[data-role],[data-dlg],[data-reset],[data-togglesim],[data-mgr-tab],[data-addfield],[data-addsection]');if(!b)return;
+  if(b.dataset.op)return invoke(b.dataset.op,b.dataset.tab,b.dataset.id);
+  if(b.dataset.tabBtn){S.tab=b.dataset.tabBtn;S.search='';S.filters={};return render()}
+  if(b.dataset.screen){S.screen=b.dataset.screen;return render()}
+  if(b.dataset.role){S.role=b.dataset.role;return render()}
+  if(b.dataset.togglesim!==undefined){S.simOpen=!S.simOpen;return render()}
+  if(b.dataset.reset!==undefined){const keep=S.simOpen;S=fresh();S.simOpen=keep;dialog=null;return render()}
+  if(b.dataset.mgrTab){S.mgrTab=b.dataset.mgrTab;return render()}
+  if(b.dataset.addfield!==undefined){const label=document.getElementById('nf_label').value.trim();if(!label)return toast('Enter a field label');
+    S.cfg.fields.push({id:nid('f'),tab:S.mgrTab,section:document.getElementById('nf_sec').value,label,type:document.getElementById('nf_type').value,options:'Option 1,Option 2',required:false,readOnly:false,visible:true,searchable:false,filterable:false,print:true});toast('Field added to '+S.cfg.labels[S.mgrTab]);return render()}
+  if(b.dataset.addsection!==undefined){const n=document.getElementById('ns_name').value.trim();if(n&&!S.cfg.sections[S.mgrTab].includes(n))S.cfg.sections[S.mgrTab].push(n);return render()}
+  if(b.dataset.dlg){const a=b.dataset.dlg;
+    if(a==='cancel'){dialog=null;return render()}
+    if(a==='save')return saveForm();
+    if(a==='yes'){const f=dialog.onYes;dialog=null;f();return render()}
+    if(a==='print'){window.print();return}}
+});
+document.addEventListener('change',e=>{
+  const el=e.target;
+  if(el.dataset.perm){const [a,b]=el.dataset.perm.split(':');if(a==='DASH')S.perms.DASH=el.checked;else if(b)S.perms[a][b]=el.checked;else S.perms[a]=el.checked;return render()}
+  if(el.dataset.flag){const [id,k]=el.dataset.flag.split(':');S.cfg.fields.find(f=>f.id===id)[k]=el.checked;return render()}
+  if(el.dataset.act){const [t,o]=el.dataset.act.split(':');S.cfg.actions[t][o]=el.checked;return render()}
+  if(el.dataset.form){S.cfg.formOn[el.dataset.form]=el.checked;return render()}
+  if(el.dataset.fsec){S.cfg.fields.find(f=>f.id===el.dataset.fsec).section=el.value;return render()}
+  if(el.dataset.ftab){const f=S.cfg.fields.find(x=>x.id===el.dataset.ftab);f.tab=el.value;f.section=S.cfg.sections[f.tab][0];return render()}
+  if(el.dataset.dash){S.cfg.dash[el.dataset.dash]=el.value;if(el.dataset.dash==='tableTab')S.cfg.dash.tableField=(fieldsOf(el.value)[0]||{}).id;return render()}
+});
+document.addEventListener('input',e=>{
+  const el=e.target;
+  if(el.id==='search'){S.search=el.value;return render()}
+  if(el.dataset.filter){S.filters[el.dataset.filter]=el.value;return render()}
+  if(el.dataset.label){S.cfg.labels[el.dataset.label]=el.value||el.dataset.label;if(el.dataset.label==='MAIN'||1)renderKeepFocus(el)}
+  if(el.dataset.cfg){S.cfg[el.dataset.cfg]=el.value;S.cfg.name=el.value}
+  if(el.dataset.formname){S.cfg.formName=el.value||'Form'}
+});
+function renderKeepFocus(el){const key=el.dataset.label;render();const n=document.querySelector(`[data-label="${key}"]`);if(n){n.focus();n.setSelectionRange(n.value.length,n.value.length)}}
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&dialog){dialog=null;render()}});
+render();
+</script>
+</body>
+</html>
