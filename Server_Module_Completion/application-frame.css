@@ -1,0 +1,69 @@
+/* Layout-only application frame. Business modules retain their existing DOM and handlers. */
+:root{--frame-top:72px;--frame-bottom:28px}
+@media screen{
+ body.application-framed{height:100vh;height:100dvh;min-height:0;overflow:hidden}
+ body.application-framed #app.app{display:grid!important;grid-template-columns:250px minmax(0,1fr);grid-template-rows:var(--frame-top) minmax(0,1fr) var(--frame-bottom);grid-template-areas:"top top" "side work" "foot foot";height:100vh;height:100dvh;min-height:0;width:100%;overflow:hidden}
+ body.application-framed.sidebar-collapsed #app.app{grid-template-columns:72px minmax(0,1fr)}
+ body.application-framed #app>.content{grid-area:work;min-height:0;height:100%;min-width:0;max-width:100%;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable;padding:22px;box-sizing:border-box}
+ body.application-framed #appSidebar{grid-area:side;position:relative;top:auto;bottom:auto;height:100%;min-height:0;max-height:100%;overflow:hidden;box-sizing:border-box}
+ body.application-framed #appSidebar>.brand{display:none}
+ body.application-framed #mainNav{min-height:0;overflow-y:auto;overscroll-behavior:contain}
+ body.application-framed #app>.topbar{grid-area:top;position:relative;top:auto;z-index:7000;display:grid;grid-template-columns:180px minmax(160px,1fr) auto;gap:20px;align-items:center;width:100%;height:100%;margin:0;padding:10px 20px;box-sizing:border-box;background:#101c30;color:#edf3ff;border-bottom:1px solid #293950;backdrop-filter:none}
+ #app>.topbar .topbar-left{gap:14px;flex:none}
+ #app>.topbar .hamburger-btn{display:flex;color:#edf3ff;flex:none}
+ .frame-logo{position:relative;width:44px;height:44px;display:grid;place-items:center;flex:none;border:1px solid #34465f;border-radius:10px;background:#17273d;overflow:hidden}
+ .frame-logo>svg{width:29px;height:29px;color:#c6dcff}
+ .frame-logo.has-logo>svg{visibility:hidden}
+ #app .frame-logo>#brandLogo{position:absolute;inset:3px;width:36px;height:36px;max-width:36px;max-height:36px;object-fit:contain;margin:0;border:0;border-radius:5px}
+ .frame-brand-space{width:48px;min-width:0}
+ .frame-search{min-width:0;width:100%;max-width:610px;justify-self:center}
+ #app>.topbar #globalSearch{width:100%;min-width:0;background-color:#192a42;color:#edf3ff;border-color:#354761}
+ #app>.topbar #globalSearch::placeholder{color:#b3c0d3}
+ #app>.topbar .top-actions{width:auto;min-width:0;flex-wrap:nowrap;margin:0;gap:10px;order:initial}
+ #app>.topbar .top-actions>.btn,#app>.topbar .profile-btn{background:#192a42;color:#edf3ff;border-color:#354761;white-space:nowrap}
+ #app>.topbar .profile-text small{color:#b3c0d3}
+ #app>.topbar .pill{display:block;font-size:11px;background:#1c3459;color:#d4e5ff}
+ #app>.topbar .profile-menu{color:var(--text)}
+ .frame-workspace-heading{margin:0 0 18px}
+ #applicationFooter{grid-area:foot;display:flex;align-items:center;justify-content:space-between;padding:0 20px;background:#101c30;color:#b8c6d9;border-top:1px solid #293950;font-size:11px;min-width:0;z-index:7000}
+ body.application-framed :is(.hw-overlay,.record-drawer-overlay,.modal,.sidebar-backdrop){top:var(--frame-top);bottom:var(--frame-bottom)}
+ body.application-framed .record-drawer{top:var(--frame-top);bottom:var(--frame-bottom);height:auto;max-height:none}
+ body.application-framed .hw-drawer{height:100%;min-height:0;max-height:100%}
+ body.application-framed .hw-drawer>header,body.application-framed .hw-drawer>footer{flex:0 0 auto}
+ body.application-framed :is(.hw-body,.record-drawer-body){min-height:0;overflow-y:auto;overscroll-behavior:contain}
+ body.application-framed .modal-card{max-height:100%;box-sizing:border-box}
+ body.application-framed :is(.table-wrap,.hw-table-wrap,.record-table-wrap){max-width:100%;min-width:0;overflow-x:auto}
+ body.application-framed .uia1-layout{min-width:0;align-items:start}
+ body.application-framed .uia1-rail{top:0;max-height:calc(100dvh - var(--frame-top) - var(--frame-bottom) - 44px);overflow-y:auto;overscroll-behavior:contain}
+ @media(max-width:1100px){
+  body.application-framed #app>.topbar{grid-template-columns:110px minmax(130px,1fr) auto;gap:12px;padding-inline:14px}
+  .frame-brand-space{width:0}
+  #app>.topbar .profile-text{display:none}
+  #app>.topbar .print-btn-label{display:none}
+ }
+ @media(max-width:700px){
+  :root{--frame-top:100px;--frame-bottom:22px}
+  body.application-framed #app.app,body.application-framed.sidebar-collapsed #app.app{grid-template-columns:minmax(0,1fr);grid-template-areas:"top" "work" "foot"}
+  body.application-framed #app>.topbar{grid-template-columns:84px minmax(0,1fr);grid-template-rows:42px 34px;gap:6px 8px;padding:7px 10px 9px}
+  #app>.topbar .topbar-left{grid-area:1/1;gap:6px}
+  .frame-logo{width:36px;height:36px}
+  #app .frame-logo>#brandLogo{inset:2px;width:30px;height:30px}
+  .frame-search{grid-area:2/1/3/-1;max-width:none}
+  #app>.topbar #globalSearch{height:34px;padding-block:6px}
+  #app>.topbar .top-actions{grid-area:1/2;justify-self:end;gap:5px}
+  #app>.topbar .pill{font-size:9px;padding:6px;white-space:normal;max-width:min(155px,calc(100vw - 190px))}
+  #app>.topbar .top-actions>.btn{padding:6px}
+  #app>.topbar .profile-btn{padding:3px}
+  #app>.topbar .save-status{display:none}
+  body.application-framed #app>.content{padding:14px}
+  body.application-framed #appSidebar{position:fixed;top:var(--frame-top);bottom:var(--frame-bottom);left:0;height:auto;max-height:none;min-height:0;width:270px;z-index:6000}
+  body.application-framed .hw-drawer,body.application-framed .record-drawer{width:100%;max-width:100%}
+  #applicationFooter{padding-inline:12px;font-size:10px}
+ }
+}
+@media print{
+ body.application-framed,body.application-framed #app.app,body.application-framed #app>.content{height:auto!important;min-height:0!important;max-height:none!important;overflow:visible!important}
+ body.application-framed #app.app{display:block!important}
+ #app>.topbar,#appSidebar,#applicationFooter,.frame-workspace-heading{display:none!important}
+ body.application-framed .uia1-rail{display:none!important}
+}

@@ -1,0 +1,881 @@
+[COVER]
+# SCHOOLHUB WINDOWS INSTALLATION
+[SUBTITLE] Complete beginner guide for a fresh Windows computer
+
+[SUBTITLE] Manual PostgreSQL setup with the official EDB installer, Node.js, frontend hosting, database creation, application configuration, startup, verification, and troubleshooting.
+
+[SUBTITLE] Local addresses used in this guide:
+[SUBTITLE] Frontend 127.0.0.1:8080 | API 127.0.0.1:4010 | PostgreSQL 127.0.0.1:5432
+
+!DANGER Do not reuse a database password that has appeared in chat, screenshots, email, or documentation. Create a new unique password and store it in a password manager.
+
+[SUBTITLE] This guide does not use BAT automation for PostgreSQL. Every database step is shown manually.
+
+[PAGE]
+# 0. What you are installing
+
+SchoolHub has three separate parts. Understanding them prevents most beginner mistakes.
+
+## The three parts
+
+- <b>Frontend:</b> the visible HTML/CSS/JavaScript page. Your browser opens it at http://127.0.0.1:8080.
+- <b>API server:</b> the Node.js program inside schoolhub-server. It listens at http://127.0.0.1:4010.
+- <b>Database:</b> PostgreSQL. It stores server records and listens locally on port 5432.
+
+[CODE]
+Browser
+  +-- opens SchoolHub frontend ------> 127.0.0.1:8080
+  +-- frontend calls Node.js API ----> 127.0.0.1:4010
+  +-- Node.js API calls PostgreSQL --> 127.0.0.1:5432
+[/CODE]
+
+!WARN The browser must never connect directly to PostgreSQL. The database password goes only in schoolhub-server\.env, never in the HTML file.
+
+## What you need
+
+- A 64-bit Windows 10/11 or Windows Server computer with administrator access.
+- Internet access for the Node.js, PostgreSQL, and npm downloads.
+- At least 4 GB RAM and 10 GB free disk space for a local test.
+- The SchoolHub HTML file and complete schoolhub-server folder.
+- A password manager or another secure place for newly created credentials.
+
+## Folder used in every example
+
+[CODE]
+C:\SchoolHub
+[/CODE]
+
+If you use another drive or folder, replace C:\SchoolHub in every command.
+
+## Approximate beginner time
+
+- Downloads and installations: 20-40 minutes.
+- Database and application configuration: 20-30 minutes.
+- Verification and troubleshooting: 15-30 minutes.
+
+[PAGE]
+# 1. Install Node.js
+
+SchoolHub requires Node.js 22 or newer. Node.js includes npm, which downloads the exact backend packages listed by SchoolHub. Python is not required.
+
+## 1.1 Download Node.js
+
+1. Open Microsoft Edge or Chrome.
+2. Visit <font color="#2563EB">https://nodejs.org/en/download</font>.
+3. Choose an <b>LTS</b> release. Node.js 24 LTS is currently available and is suitable. Node.js 22 LTS is also compatible.
+4. Choose Windows and the 64-bit .msi installer for a normal Intel/AMD computer.
+5. Open the downloaded MSI file.
+
+## 1.2 Complete the setup wizard
+
+1. Select <b>Next</b> on the welcome screen.
+2. Accept the license agreement and select <b>Next</b>.
+3. Keep the default folder: C:\Program Files\nodejs\.
+4. Keep Node.js runtime, npm package manager, and Add to PATH selected.
+5. Select <b>Install</b> and approve the Windows administrator prompt.
+6. Select <b>Finish</b>.
+7. Close all old PowerShell and Command Prompt windows.
+
+## 1.3 Verify Node.js and npm
+
+Open Start, type PowerShell, and open Windows PowerShell. Run:
+
+[CODE]
+node --version
+npm --version
+[/CODE]
+
+Node must show v22 or higher. npm must show a version number.
+
+!WARN If Windows says node is not recognized, restart Windows. If it still fails, add C:\Program Files\nodejs\ to the System PATH using the same Environment Variables method shown later for PostgreSQL.
+
+## 1.4 Optional Python alternative
+
+Python is not needed by SchoolHub. If it is already installed, you may later serve the frontend with python -m http.server 8080. This guide instead uses the Node-based http-server utility.
+
+[PAGE]
+# 2. Place and serve the frontend
+
+## 2.1 Create the folder
+
+1. Open File Explorer.
+2. Open This PC, then Local Disk (C:).
+3. Create a folder named SchoolHub.
+4. Copy the SchoolHub HTML file and the complete schoolhub-server folder into it.
+
+Your files should look like:
+
+[CODE]
+C:\SchoolHub\
+  SchoolHub_School_Management_App_Complete.html
+  schoolhub-server\
+    package.json
+    package-lock.json
+    .env.example
+    src\
+    tests\
+[/CODE]
+
+Do not rename files inside schoolhub-server.
+
+## 2.2 Why double-clicking is not enough
+
+Double-clicking the HTML opens a file:/// address. That is acceptable only for a quick Local-mode view. Server Pilot should be tested through http://localhost so browser origin and API security checks behave correctly.
+
+## 2.3 Install the small frontend server
+
+In PowerShell:
+
+[CODE]
+npm install --global http-server
+[/CODE]
+
+Wait for the prompt to return. Then:
+
+[CODE]
+cd C:\SchoolHub
+http-server . -p 8080 -a 127.0.0.1 -c-1
+[/CODE]
+
+Keep this PowerShell window open. Call it the <b>Frontend window</b>.
+
+## 2.4 Open the exact page
+
+[CODE]
+http://127.0.0.1:8080/SchoolHub_School_Management_App_Complete.html
+[/CODE]
+
+Check the browser address:
+
+- Correct: http://127.0.0.1:8080/... or http://localhost:8080/...
+- Incorrect for server testing: file:///C:/SchoolHub/...
+
+!INFO If the page does not open, confirm the Frontend window is still running and that it was started from C:\SchoolHub.
+
+[PAGE]
+# 3. Download PostgreSQL from EDB
+
+The PostgreSQL project links to an EDB-certified interactive Windows installer. It includes PostgreSQL Server, pgAdmin 4, Stack Builder, and command-line tools such as psql.
+
+## 3.1 Use the official download path
+
+1. Open <font color="#2563EB">https://www.postgresql.org/download/windows/</font>.
+2. Find <b>Interactive installer by EDB</b>.
+3. Select <b>Download the installer</b>. The link opens EDB.
+4. Choose a supported 64-bit PostgreSQL release for your Windows version.
+5. Download the Windows x86-64 .exe installer.
+
+PostgreSQL 18 is tested by EDB on 64-bit Windows Server 2022 and 2025. If you have a different Windows release, check the platform support table on the official PostgreSQL Windows download page.
+
+!WARN Do not choose a beta, release candidate, source archive, or ZIP-only binary package. Use the interactive EDB installer.
+
+## 3.2 Start the EDB installer
+
+1. Open the downloaded postgresql-...-windows-x64.exe file.
+2. Select Yes on the Windows User Account Control prompt.
+3. On Welcome to the PostgreSQL Setup Wizard, select Next.
+4. Keep the default installation directory, normally:
+
+[CODE]
+C:\Program Files\PostgreSQL\18
+[/CODE]
+
+If you selected another major version, its number will replace 18.
+
+## 3.3 Select components
+
+Keep all these components selected:
+
+- PostgreSQL Server
+- pgAdmin 4
+- Stack Builder
+- Command Line Tools
+
+Select Next.
+
+## 3.4 Choose the data directory
+
+Keep the suggested data folder unless your server administrator provided a dedicated database drive. This folder contains the real database files.
+
+!DANGER Do not manually copy, edit, or delete files in the PostgreSQL data directory. Use pg_dump and pg_restore for backups.
+
+[PAGE]
+# 3. PostgreSQL setup wizard - continued
+
+## 3.5 Create the postgres superuser password
+
+The installer asks for the password of PostgreSQL's built-in administrator named <b>postgres</b>.
+
+1. Generate a long, unique password.
+2. Save it in a password manager.
+3. Enter it in Password and Retype password.
+4. Select Next.
+
+This is not the SchoolHub web login password. It is also not the password that the application will use permanently.
+
+!WARN You will create three separate credentials: postgres manages the database server; schoolhub_app is used by the API; the SchoolHub Super Admin signs into the website.
+
+## 3.6 Keep port 5432
+
+1. On the Port screen, keep 5432.
+2. Select Next.
+3. If the installer says 5432 is already used, stop and read Section 13 before continuing.
+
+## 3.7 Locale and installation
+
+1. Keep Default locale unless your organization requires another database locale.
+2. Review the Pre Installation Summary.
+3. Select Next, then Next again to install.
+4. Wait until setup completes.
+5. Stack Builder may be unchecked at the end; SchoolHub needs no optional add-on for basic operation.
+6. Select Finish.
+
+## 3.8 Verify the Windows service
+
+1. Press Windows+R.
+2. Type services.msc and press Enter.
+3. Find a service named similar to postgresql-x64-18.
+4. Status should be Running.
+5. Startup Type should be Automatic.
+
+Do not change the Windows service account unless an experienced administrator has planned permissions for it.
+
+[PAGE]
+# 4. Add PostgreSQL tools to Windows PATH
+
+PATH lets PowerShell find psql, pg_dump, pg_restore, and pg_isready.
+
+## 4.1 Add the bin directory
+
+1. Open Start.
+2. Search for <b>Edit the system environment variables</b> and open it.
+3. In System Properties, select the Advanced tab.
+4. Select Environment Variables.
+5. In the lower System variables list, select Path.
+6. Select Edit.
+7. Select New.
+8. Add:
+
+[CODE]
+C:\Program Files\PostgreSQL\18\bin
+[/CODE]
+
+Use your installed PostgreSQL version number if it is not 18.
+
+9. Select OK in the Path window.
+10. Select OK in Environment Variables.
+11. Select OK in System Properties.
+12. Close every existing PowerShell and Command Prompt window.
+13. Open a new PowerShell window.
+
+## 4.2 Verify the tools
+
+[CODE]
+psql --version
+pg_isready -h 127.0.0.1 -p 5432
+[/CODE]
+
+Expected example:
+
+[CODE]
+psql (PostgreSQL) 18.x
+127.0.0.1:5432 - accepting connections
+[/CODE]
+
+!INFO If psql is not recognized, try & "C:\Program Files\PostgreSQL\18\bin\psql.exe" --version. If that works, the PATH entry or terminal restart is the issue.
+
+## 4.3 Firewall rule for local setup
+
+127.0.0.1 means this computer only. A local connection normally does not require an inbound Windows Firewall rule. Do not open database port 5432 to the internet.
+
+[PAGE]
+# 5. Create the database with SQL Shell
+
+Use this section or the pgAdmin section, not both.
+
+## 5.1 Open SQL Shell (psql)
+
+1. Open Start.
+2. Open the PostgreSQL 18 folder.
+3. Select SQL Shell (psql).
+4. Press Enter to accept each default:
+
+[CODE]
+Server [localhost]:
+Database [postgres]:
+Port [5432]:
+Username [postgres]:
+[/CODE]
+
+5. Enter the postgres password chosen during installation. The cursor does not move while you type; this is normal.
+6. A successful connection shows postgres=#.
+
+## 5.2 Create the application login role
+
+Create a second, new random password for schoolhub_app. Replace the placeholder:
+
+[CODE]
+CREATE ROLE schoolhub_app
+  LOGIN
+  PASSWORD 'REPLACE_WITH_A_NEW_RANDOM_PASSWORD';
+[/CODE]
+
+Press Enter after the semicolon. Expected response: CREATE ROLE.
+
+## 5.3 Create the SchoolHub database
+
+[CODE]
+CREATE DATABASE schoolhub
+  OWNER schoolhub_app;
+[/CODE]
+
+Expected response: CREATE DATABASE.
+
+## 5.4 Assign the required access
+
+[CODE]
+REVOKE ALL ON DATABASE schoolhub FROM PUBLIC;
+GRANT CONNECT ON DATABASE schoolhub TO schoolhub_app;
+\connect schoolhub
+GRANT ALL ON SCHEMA public TO schoolhub_app;
+[/CODE]
+
+## 5.5 Verify and exit
+
+[CODE]
+\du schoolhub_app
+\l schoolhub
+\conninfo
+\quit
+[/CODE]
+
+!WARN If SQL says an object already exists, do not delete it. Verify whether this computer already has a SchoolHub database before changing anything.
+
+[PAGE]
+# 6. Create the database with pgAdmin 4
+
+This is a graphical alternative to Section 5. Do not create the same objects twice.
+
+## 6.1 Connect to PostgreSQL
+
+1. Open Start and launch pgAdmin 4.
+2. If asked, create a pgAdmin master password. This protects saved connections and is separate from PostgreSQL.
+3. In the left Browser panel, expand Servers.
+4. Expand PostgreSQL 18.
+5. Enter the postgres superuser password.
+
+## 6.2 Create schoolhub_app
+
+1. Expand the server.
+2. Right-click Login/Group Roles.
+3. Select Create, then Login/Group Role.
+4. On General, set Name to schoolhub_app.
+5. On Definition, enter and confirm a new random password.
+6. On Privileges, enable Can login?
+7. Leave Superuser, Create roles, and Create databases disabled.
+8. Select Save.
+
+## 6.3 Create the schoolhub database
+
+1. Right-click Databases.
+2. Select Create, then Database.
+3. Set Database to schoolhub.
+4. Set Owner to schoolhub_app.
+5. Select Save.
+
+## 6.4 Apply the final grants
+
+1. Select the schoolhub database.
+2. Open Tools, then Query Tool.
+3. Paste:
+
+[CODE]
+REVOKE ALL ON DATABASE schoolhub FROM PUBLIC;
+GRANT CONNECT ON DATABASE schoolhub TO schoolhub_app;
+GRANT ALL ON SCHEMA public TO schoolhub_app;
+[/CODE]
+
+4. Select Execute or press F5.
+5. Refresh Databases and Login/Group Roles.
+
+
+[PAGE]
+# 7. Test the application database account
+
+Open a new PowerShell window:
+
+[CODE]
+psql -h 127.0.0.1 -p 5432 -U schoolhub_app -d schoolhub
+[/CODE]
+
+Enter the schoolhub_app password, not the postgres password.
+
+[CODE]
+SELECT current_user, current_database();
+\quit
+[/CODE]
+
+Expected values are schoolhub_app and schoolhub.
+
+## Common messages
+
+- <b>password authentication failed:</b> the username/password is wrong.
+- <b>database schoolhub does not exist:</b> the database name or creation step is wrong.
+- <b>connection refused:</b> PostgreSQL is stopped or using another port.
+- <b>psql is not recognized:</b> PATH is missing or the terminal was not reopened.
+
+## Reset schoolhub_app if necessary
+
+Connect as postgres in SQL Shell or pgAdmin Query Tool:
+
+[CODE]
+ALTER ROLE schoolhub_app
+  PASSWORD 'A_NEW_RANDOM_PASSWORD';
+[/CODE]
+
+After resetting this password, update DATABASE_URL in .env and restart the API.
+
+## Password rules for DATABASE_URL
+
+A database URL treats some symbols specially. Encode them in the password section:
+
+- @ becomes %40
+- : becomes %3A
+- / becomes %2F
+- ? becomes %3F
+- # becomes %23
+- % becomes %25
+
+Example only: Test@2026 becomes Test%402026 inside DATABASE_URL. Do not use that example as a real password.
+
+[PAGE]
+# 8. Configure schoolhub-server\.env
+
+## 8.1 Create .env from the example
+
+[CODE]
+cd C:\SchoolHub\schoolhub-server
+Copy-Item .env.example .env
+[/CODE]
+
+If Windows hides extensions, open File Explorer, select View, Show, File name extensions. The file must be exactly .env, not .env.txt.
+
+## 8.2 Edit .env in Notepad
+
+[CODE]
+notepad .env
+[/CODE]
+
+Use these local values:
+
+[CODE]
+NODE_ENV=development
+HOST=127.0.0.1
+PORT=4010
+DATABASE_URL=postgresql://schoolhub_app:YOUR_PASSWORD@127.0.0.1:5432/schoolhub
+SESSION_COOKIE_NAME=schoolhub_sid
+SESSION_TTL_MINUTES=480
+ALLOWED_ORIGINS=http://127.0.0.1:8080,http://localhost:8080
+TRUST_PROXY=false
+LOG_LEVEL=info
+[/CODE]
+
+Replace YOUR_PASSWORD with the URL-encoded schoolhub_app password.
+
+## 8.3 Save and close Notepad
+
+1. Select File, Save.
+2. Close Notepad.
+3. In PowerShell, confirm the file exists:
+
+[CODE]
+Get-Item .env
+[/CODE]
+
+!DANGER Never put the postgres superuser password in the HTML. Never email, upload, screenshot, or commit .env. It contains the application's database credential.
+
+## 8.4 Check the localhost values
+
+- HOST must be 127.0.0.1.
+- PORT must be 4010.
+- Database host must be 127.0.0.1.
+- Database port must be 5432.
+- ALLOWED_ORIGINS must contain the exact frontend origins on port 8080.
+
+[PAGE]
+# 9. Install, test, build, and migrate
+
+Run every command from:
+
+[CODE]
+cd C:\SchoolHub\schoolhub-server
+[/CODE]
+
+## 9.1 Install exact packages
+
+[CODE]
+npm ci
+[/CODE]
+
+Wait until the prompt returns. Warnings are not automatically failures; a red npm error and nonzero exit means the command failed.
+
+## 9.2 Build the API
+
+[CODE]
+npm run build
+[/CODE]
+
+Expected: TypeScript compilation completes without errors and dist\src\server.js exists.
+
+## 9.3 Run automated tests
+
+[CODE]
+npm test
+[/CODE]
+
+Expected: all tests pass. The normal test command uses an isolated test database and does not modify your operational schoolhub database.
+
+## 9.4 Apply PostgreSQL migrations
+
+[CODE]
+npm run migrate
+npm run migrate
+[/CODE]
+
+The first command creates or updates SchoolHub tables. The second should report no newly applied migrations. This proves migration idempotency.
+
+!WARN Do not skip migrations. The frontend may open, but server login and records will fail if tables are missing.
+
+## 9.5 Start the API
+
+[CODE]
+npm start
+[/CODE]
+
+Keep this <b>API window</b> open.
+
+## 9.6 Test API health
+
+Open a second PowerShell window:
+
+[CODE]
+Invoke-RestMethod http://127.0.0.1:4010/health
+[/CODE]
+
+Expected: status is ok and apiVersion is v1.
+
+[PAGE]
+# 10. Connect the frontend to SchoolHub Server
+
+## 10.1 Keep two terminal windows running
+
+- Frontend window: http-server started from C:\SchoolHub on port 8080.
+- API window: npm start from C:\SchoolHub\schoolhub-server on port 4010.
+
+## 10.2 Open SchoolHub
+
+[CODE]
+http://127.0.0.1:8080/SchoolHub_School_Management_App_Complete.html
+[/CODE]
+
+## 10.3 Configure Server Pilot
+
+1. Sign into Local mode with the local administrator.
+2. Open Admin Settings.
+3. Find Server Pilot.
+4. Set Backend URL to:
+
+[CODE]
+http://127.0.0.1:4010
+[/CODE]
+
+5. Enter a school server ID (slug), for example my-school.
+6. Use only lowercase letters, numbers, and hyphens.
+7. Select Test Connection.
+8. Expected message: Connected - API v1.
+
+## 10.4 Create the first server administrator
+
+1. Select First server setup.
+2. Enter the school name.
+3. Enter the exact same school slug.
+4. Create a Super Admin username.
+5. Create a password with at least 12 characters, uppercase, lowercase, number, and symbol.
+6. Submit once. The setup cannot be repeated after a school exists.
+7. Sign in using the new server administrator.
+
+The web Super Admin password is separate from postgres and schoolhub_app.
+
+## 10.5 Activate Server Pilot
+
+Activate Server Pilot only after the connection test and server login work. Server failure never silently switches back to Local mode.
+
+[PAGE]
+# 11. Verify that everything works
+
+## Address checklist
+
+- Frontend: http://127.0.0.1:8080/SchoolHub_School_Management_App_Complete.html
+- Backend URL: http://127.0.0.1:4010
+- Health check: http://127.0.0.1:4010/health
+- PostgreSQL: 127.0.0.1:5432
+- ALLOWED_ORIGINS includes http://127.0.0.1:8080 and http://localhost:8080.
+
+## Functional checklist
+
+- The browser address begins with http, not file.
+- The frontend page loads.
+- API health returns status ok.
+- Server Pilot connection test succeeds.
+- The first server Super Admin can sign in.
+- A test student can be created.
+- The student remains after restarting the API.
+- No database password appears in the HTML or browser localStorage.
+
+## Check database tables
+
+[CODE]
+psql -h 127.0.0.1 -U schoolhub_app -d schoolhub
+\dt
+SELECT version, applied_at
+FROM schema_migrations
+ORDER BY version;
+\quit
+[/CODE]
+
+## Stop and restart later
+
+Press Ctrl+C in each running window.
+
+[CODE]
+# API window
+cd C:\SchoolHub\schoolhub-server
+npm start
+
+# Frontend window
+cd C:\SchoolHub
+http-server . -p 8080 -a 127.0.0.1 -c-1
+[/CODE]
+
+!INFO Several Phase 7/8 modules may still be browser-local. Keep Local-mode exports as well as PostgreSQL backups.
+
+[PAGE]
+# 12. Troubleshoot frontend and API errors
+
+## The frontend URL does not open
+
+1. Confirm the Frontend window is still open.
+2. Confirm it shows port 8080.
+3. Stop it with Ctrl+C.
+4. Restart from the correct folder:
+
+[CODE]
+cd C:\SchoolHub
+http-server . -p 8080 -a 127.0.0.1 -c-1
+[/CODE]
+
+5. Press Ctrl+F5 in the browser.
+
+## Page opens but Test Connection fails
+
+1. Test http://127.0.0.1:4010/health.
+2. If it fails, restart npm start in the API window.
+3. Confirm Backend URL is exactly http://127.0.0.1:4010.
+4. Confirm .env contains both port-8080 origins.
+5. Restart the API after every .env change.
+
+## CORS error
+
+The browser address and ALLOWED_ORIGINS differ. Copy only the origin portion exactly. For example:
+
+[CODE]
+Browser page:
+http://localhost:8080/SchoolHub_School_Management_App_Complete.html
+
+Required origin:
+http://localhost:8080
+[/CODE]
+
+## Database authentication failure
+
+1. Test psql as schoolhub_app.
+2. Reset the role password if necessary.
+3. URL-encode reserved symbols.
+4. Update DATABASE_URL.
+5. Restart npm start.
+
+## .env is ignored
+
+- Confirm the filename is .env, not .env.txt.
+- Confirm it is inside C:\SchoolHub\schoolhub-server.
+- Restart the API.
+- Read the startup error in the API window.
+
+[PAGE]
+# 13. Troubleshoot Windows services, firewall, and ports
+
+## Find what uses each port
+
+[CODE]
+netstat -ano | findstr :5432
+netstat -ano | findstr :4010
+netstat -ano | findstr :8080
+[/CODE]
+
+The last number is the process ID (PID). Identify it:
+
+[CODE]
+tasklist /FI "PID eq REPLACE_WITH_PID"
+[/CODE]
+
+!DANGER Do not stop an unknown process. Verify its name and purpose first. Stopping another database or web server can cause an outage or data loss.
+
+## Port 5432 conflict
+
+- Open services.msc and check for an existing PostgreSQL installation.
+- Prefer using the existing trusted instance instead of installing a second one.
+- If another port is intentionally selected, use it consistently in PostgreSQL, psql, pg_isready, and DATABASE_URL.
+
+## Port 4010 conflict
+
+- A previous SchoolHub API may still be running.
+- Find its PID and terminal.
+- If you intentionally change the API port, update PORT in .env and Backend URL in Server Pilot.
+
+## Port 8080 conflict
+
+Use 8081:
+
+[CODE]
+http-server . -p 8081 -a 127.0.0.1 -c-1
+[/CODE]
+
+Then update ALLOWED_ORIGINS and restart the API:
+
+[CODE]
+ALLOWED_ORIGINS=http://127.0.0.1:8081,http://localhost:8081
+[/CODE]
+
+## Windows Firewall
+
+Local 127.0.0.1 testing normally needs no inbound rule. If another computer must connect, use a proper HTTPS reverse proxy and narrowly scoped firewall rules. Never expose port 5432 publicly.
+
+[PAGE]
+# 14. Error reference and safe diagnostics
+
+## Common errors
+
+- <b>ECONNREFUSED 5432:</b> PostgreSQL is stopped, port is wrong, or DATABASE_URL is wrong.
+- <b>password authentication failed:</b> schoolhub_app password does not match .env.
+- <b>database schoolhub does not exist:</b> create it or correct DATABASE_URL.
+- <b>relation does not exist:</b> run npm run migrate twice.
+- <b>EADDRINUSE:</b> another program is using port 4010.
+- <b>Failed to fetch:</b> API is stopped, Backend URL is wrong, or CORS is blocking the request.
+- <b>Setup already completed:</b> a school already exists. Use the existing administrator; do not delete data to repeat setup.
+- <b>npm ci fails:</b> check internet access, package-lock.json, Node version, and proxy settings.
+
+## Safe diagnostic commands
+
+[CODE]
+node --version
+npm --version
+psql --version
+pg_isready -h 127.0.0.1 -p 5432
+Invoke-RestMethod http://127.0.0.1:4010/health
+netstat -ano | findstr :4010
+[/CODE]
+
+## PostgreSQL service will not start
+
+1. Open services.msc and try Start once.
+2. Open Event Viewer, Windows Logs, Application.
+3. Check the newest PostgreSQL error.
+4. Check the PostgreSQL log directory under the installed data folder.
+5. Do not delete postmaster.pid unless an experienced PostgreSQL administrator has confirmed it is stale and no server process is running.
+
+!WARN Before sharing screenshots or logs, remove DATABASE_URL, passwords, session cookies, student records, and other sensitive information.
+
+[PAGE]
+# 15. Backups and production warning
+
+## Create a manual PostgreSQL backup
+
+This prompts for the schoolhub_app password:
+
+[CODE]
+pg_dump -h 127.0.0.1 -p 5432 -U schoolhub_app
+  -d schoolhub -F c
+  -f C:\SchoolHub\schoolhub-backup.dump
+[/CODE]
+
+Enter it as one PowerShell line if line wrapping is inconvenient:
+
+[CODE]
+pg_dump -h 127.0.0.1 -p 5432 -U schoolhub_app -d schoolhub -F c -f C:\SchoolHub\schoolhub-backup.dump
+[/CODE]
+
+## Check that the backup is readable
+
+[CODE]
+pg_restore --list C:\SchoolHub\schoolhub-backup.dump |
+  Select-Object -First 20
+[/CODE]
+
+- Copy encrypted backups to storage outside this computer.
+- Keep Local-mode JSON exports because some modules remain browser-local.
+- Test restoration into a separate empty recovery database.
+- Never assume a copied PostgreSQL data directory is a valid backup.
+
+## Local setup is not public production hosting
+
+This guide creates local HTTP services for learning and verification. Before school-wide or internet access, add:
+
+- HTTPS with a trusted certificate.
+- IIS, Nginx, or another controlled reverse proxy.
+- Automatic service startup and monitoring.
+- Restricted Windows Firewall and network firewall policies.
+- Encrypted off-machine backups and tested restoration.
+- A dedicated Windows service account.
+
+!DANGER Never publish Node port 4010 or PostgreSQL port 5432 directly. Users should access only the HTTPS website.
+
+[PAGE]
+# 16. Final checklist and references
+
+## Installation sign-off
+
+- Node.js 22+ and npm show version numbers.
+- C:\SchoolHub contains the HTML and schoolhub-server.
+- Frontend opens through 127.0.0.1:8080.
+- PostgreSQL Windows service is running.
+- psql and pg_isready work from PowerShell.
+- schoolhub_app connects to the schoolhub database.
+- .env contains the correct local values and a protected credential.
+- npm ci, npm run build, and npm test pass.
+- npm run migrate succeeds twice.
+- API health succeeds on port 4010.
+- Server Pilot connection succeeds.
+- First server administrator can sign in.
+- Database and Local-mode backups exist.
+
+## Official downloads
+
+PostgreSQL Windows page and EDB-certified interactive installer:
+<font color="#2563EB">https://www.postgresql.org/download/windows/</font>
+
+Node.js official download page:
+<font color="#2563EB">https://nodejs.org/en/download</font>
+
+## Application references
+
+- schoolhub-server\.env.example
+- schoolhub-server\README.md
+- schoolhub-server\package.json
+
+## Values to record securely
+
+- PostgreSQL version and installation folder.
+- Database backup location and last restore-test date.
+- Secret-manager entry names, but not secret values.
+- School server ID (slug).
+- Node.js and application versions.

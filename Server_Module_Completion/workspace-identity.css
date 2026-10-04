@@ -1,0 +1,19 @@
+/* Branding suppression is screen-only; document print headers are not targeted. */
+@media screen{
+ #app>.content>.school-header,#app>.content>.frame-workspace-heading,.workspace-duplicate-title{display:none!important}
+ #app>.topbar .frame-school-identity{display:flex;flex-direction:column;gap:3px;min-width:0;overflow:hidden}
+ #app>.topbar #brandName{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:16px;line-height:1.25}
+ #app>.topbar .frame-school-identity small{font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:inherit;opacity:.8}
+ body.application-framed #app>.topbar{grid-template-columns:minmax(230px,320px) minmax(150px,1fr) auto;gap:14px}
+ #app>.topbar .topbar-left{min-width:0}
+ .workspace-identity{display:flex!important;align-items:center!important;justify-content:space-between;gap:12px;margin:0 0 18px!important;padding:0!important;width:100%;min-width:0;background:none!important;border:0!important}
+ .workspace-identity-copy{flex:1;min-width:0}
+ .workspace-category{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:0 0 7px!important;font-weight:600}
+ .workspace-identity-title{color:var(--text)!important;font-size:25px!important;line-height:1.25!important;white-space:normal!important;margin:0!important}
+ .workspace-description{font-size:13px!important;line-height:1.5;margin:6px 0 0!important;color:var(--muted)!important;max-width:850px}
+ .workspace-identity>.btn,.workspace-identity>.quick{flex-shrink:0}
+ @media(max-width:1200px) and (min-width:701px){body.application-framed #app>.topbar{grid-template-columns:minmax(190px,240px) minmax(100px,1fr) auto;gap:10px}#app>.topbar #brandName{font-size:13px}}
+ @media(max-width:850px) and (min-width:701px){body.application-framed #app>.topbar{grid-template-columns:185px minmax(80px,1fr) auto;gap:7px}#app>.topbar .topbar-left{gap:7px}#app>.topbar .pill{max-width:160px;white-space:normal;font-size:10px}}
+ @media(max-width:700px){body.application-framed #app>.topbar{grid-template-columns:minmax(90px,1fr) auto;gap:6px}#app>.topbar .frame-school-identity{max-width:110px}#app>.topbar #brandName{font-size:11px}#app>.topbar .frame-school-identity small{display:none}#app>.topbar .pill{max-width:110px;font-size:8px}.workspace-identity{flex-wrap:wrap;align-items:flex-start!important;gap:10px}.workspace-identity-copy{flex-basis:100%}.workspace-identity-title{font-size:22px!important}.workspace-identity .uia1-search-wrap{width:100%;max-width:none}}
+ @media(max-width:370px){#app>.topbar .frame-school-identity{max-width:55px}}
+}

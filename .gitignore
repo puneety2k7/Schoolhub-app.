@@ -1,0 +1,10 @@
+schoolhub.config.env
+schoolhub-runtime-config.json.tmp
+schoolhub-server/.env
+schoolhub-server/dist/
+schoolhub-server/node_modules/
+schoolhub-server/.postgresql-test/
+logs/
+backups/
+*.dump
+*.pid
