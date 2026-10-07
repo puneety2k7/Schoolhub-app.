@@ -14,6 +14,7 @@ import {workspaceValues} from './picklists.js';
 import {defaultWorkspaceTabs,UNIVERSAL_SPECIAL_PERMISSIONS,UNIVERSAL_TAB_KEYS} from '../authorization/universal-workspace-permissions.js';
 import {workspaceManifest,type AuthorizationAction} from '../authorization/policy-registry.js';
 import {writeAudit} from '../audit/service.js';
+import {experimentalFeatures,gridTabAvailable} from '../services/experimental-features.js';
 
 type OperationalView='create'|'edit'|'record'|'print';
 const selectable=new Set(['radio','singleSelect','multiSelect']);
@@ -61,11 +62,13 @@ async function requireSelectedPermission(db:Queryable,p:Principal,workspaceId:st
 function canAccessGridRecord(p:Principal,selection:{administrator:boolean;items:Set<string>},row:any){if(p.systemRecovery===true||selection.administrator||selection.items.has('SPECIAL|VIEW_RECORDS_OWNED_BY_OTHERS'))return true;if(row.owner_user_id===p.userId)return true;return selection.items.has('SPECIAL|VIEW_ASSIGNED_RECORDS')&&Array.isArray(row.assigned_user_ids)&&row.assigned_user_ids.includes(p.userId)}
 
 export async function operationalDefinition(db:Queryable,p:Principal,workspaceKey:string,view:OperationalView,requestedTabKey?:WorkspaceTabKey){
- const service=new WorkspaceService(db as Database);
+ const service=new WorkspaceService(db as Database),features=await experimentalFeatures(db,p.schoolId),availableTabs=UNIVERSAL_TAB_KEYS.filter(tab=>gridTabAvailable(features,tab)) as WorkspaceTabKey[];
+ if(requestedTabKey&&!gridTabAvailable(features,requestedTabKey))
+  throw new ApiError('EXPERIMENTAL_FEATURE_DISABLED','Grid tabs are disabled in Admin Settings.',403,{workspaceKey,tabKey:requestedTabKey,feature:'gridTabs'});
  let workspace=(await db.query<any>('SELECT id FROM workspace_definitions WHERE school_id=$1 AND workspace_key=$2 AND status=$3',[p.schoolId,workspaceKey,'Active'])).rows[0];
  if(!workspace&&typeof (db as any).transaction==='function'){await service.syncFactories(p,'operational-fields');workspace=(await db.query<any>('SELECT id FROM workspace_definitions WHERE school_id=$1 AND workspace_key=$2 AND status=$3',[p.schoolId,workspaceKey,'Active'])).rows[0]}
- if(!workspace)return{id:null,workspaceKey,definitionVersion:0,view,tabConfiguration:defaultWorkspaceTabs(workspaceKey),visibleTabKeys:p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS]:[],editableTabKeys:p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS]:[],addableTabKeys:p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS]:[],deletableTabKeys:p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS]:[],printableTabKeys:p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS]:[],specialPermissionKeys:p.systemRecovery===true?[...UNIVERSAL_SPECIAL_PERMISSIONS]:[],sections:[]};
- const definition=await service.definition(db,p,workspace.id),selection=await universalSelections(db,p,workspace.id),visibleTabKeys=p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'VIEW'),editableTabKeys=p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'EDIT'),addableTabKeys=p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'ADD'),deletableTabKeys=p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'DELETE'),printableTabKeys=p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'PRINT');
+ if(!workspace)return{id:null,workspaceKey,definitionVersion:0,view,tabConfiguration:defaultWorkspaceTabs(workspaceKey),visibleTabKeys:p.systemRecovery===true?[...availableTabs]:[],editableTabKeys:p.systemRecovery===true?[...availableTabs]:[],addableTabKeys:p.systemRecovery===true?[...availableTabs]:[],deletableTabKeys:p.systemRecovery===true?[...availableTabs]:[],printableTabKeys:p.systemRecovery===true?[...availableTabs]:[],specialPermissionKeys:p.systemRecovery===true?[...UNIVERSAL_SPECIAL_PERMISSIONS]:[],sections:[]};
+ const definition=await service.definition(db,p,workspace.id),selection=await universalSelections(db,p,workspace.id),visibleTabKeys=(p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'VIEW')).filter(tab=>availableTabs.includes(tab)),editableTabKeys=(p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'EDIT')).filter(tab=>availableTabs.includes(tab)),addableTabKeys=(p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'ADD')).filter(tab=>availableTabs.includes(tab)),deletableTabKeys=(p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'DELETE')).filter(tab=>availableTabs.includes(tab)),printableTabKeys=(p.systemRecovery===true?[...UNIVERSAL_TAB_KEYS] as WorkspaceTabKey[]:selectedTabs(selection,'PRINT')).filter(tab=>availableTabs.includes(tab));
  if(!visibleTabKeys.length)throw new ApiError('AUTHORIZATION_DENIED','Access is denied.',403,{workspaceKey,action:'record.view',reason:'NO_VISIBLE_WORKSPACE_TAB'});
  const action=viewAction(view),actionTabs=view==='record'?visibleTabKeys:({create:addableTabKeys,edit:editableTabKeys,print:printableTabKeys} as any)[view]||[],allowedTabs=actionTabs.filter((tab:WorkspaceTabKey)=>visibleTabKeys.includes(tab));
  if(requestedTabKey&&(!visibleTabKeys.includes(requestedTabKey)||!allowedTabs.includes(requestedTabKey)))throw new ApiError('AUTHORIZATION_DENIED','Access is denied.',403,{workspaceKey,tabKey:requestedTabKey,action,reason:'TAB_PERMISSION_REQUIRED'});
@@ -135,7 +138,7 @@ export async function validateOperationalCustomValues(db:Queryable,p:Principal,w
  }
  return normalized;
 }
-export async function validateStudentCustomValues(db:Queryable,p:Principal,values:Record<string,any>,context:Record<string,any>,view:'create'|'edit'){return validateOperationalCustomValues(db,p,'students',values,context,view)}
+export async function validateStudentCustomValues(db:Queryable,p:Principal,values:Record<string,any>,context:Record<string,any>,view:'create'|'edit',tabKey:WorkspaceTabKey='MAIN'){return validateOperationalCustomValues(db,p,'students',values,context,view,tabKey)}
 
 export async function registerOperationalWorkspaceRoutes(app:FastifyInstance,db:Database,config:AppConfig){
  const auth=async(req:FastifyRequest)=>authenticate(req,db,config);

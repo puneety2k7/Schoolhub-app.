@@ -79,6 +79,16 @@ On a genuinely empty database, use the application's First server setup workflow
 
 Cloning source code does not copy the current PostgreSQL database, browser-local records, or private settings. Access existing records through the existing authorized server, or perform a separately approved backup/restore into a new database. Never publish database backups or credentials to this public repository.
 
+## Grid tabs experiment
+
+The implementation is isolated on branch `feature/grid-tabs-experimental`, based on `refactor/universal-governance`. After this branch is merged and deployed, Grid tabs default to OFF for every school whose settings do not explicitly enable them. The established Main/native screens remain active.
+
+Only the exact System Administrator recovery principal can see and change **Admin Settings → Experimental Features → Enable Grid tabs**. Saving reloads the browser so all workspace modules use one consistent state. The setting is stored per school in `schools.settings.experimentalFeatures`, uses optimistic version checks, and writes the `EXPERIMENTAL_FEATURES_UPDATED` audit event.
+
+When disabled, the frontend does not mount universal Grid tabs, custom Grid workspaces, Grid dashboards, or universal Grid actions. The server filters workspace metadata to Main and rejects direct Grid record operations with `EXPERIMENTAL_FEATURE_DISABLED`. Existing workspace configuration, permissions, and Grid records remain stored and become available again after re-enabling the switch. Disabling the experiment is therefore the rollback; do not delete Grid records or restore an older database.
+
+Before merging, resolve any overlap from ongoing Claude work in the modified files, then run the build and full tests shown below.
+
 ## Development and verification
 
 For code validation that does not start or migrate the live app:

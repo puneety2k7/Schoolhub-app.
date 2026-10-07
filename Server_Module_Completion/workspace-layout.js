@@ -137,7 +137,8 @@ function ensureWorkspace(section,id,key){
  if(isVisible(section))renderRuntime(state);
 }
 
-function ensureAll(){for(const [id,key] of Object.entries(pageKeys)){const section=document.getElementById(id);if(section)ensureWorkspace(section,id,key)}}
+async function gridTabsEnabled(){return await window.schoolHubExperimentalFeatures?.gridTabsEnabled?.()===true}
+async function ensureAll(){if(!await gridTabsEnabled())return;for(const [id,key] of Object.entries(pageKeys)){const section=document.getElementById(id);if(section)ensureWorkspace(section,id,key)}}
 async function getModel(key){return request('/'+encodeURIComponent(key))}
 async function getRows(state,sourceTab){
  if(state.rows.has(sourceTab))return state.rows.get(sourceTab);
@@ -318,7 +319,7 @@ async function saveEditor(host){
  catch(error){alert(error.message||error);button.disabled=false;button.textContent='Save dashboard'}
 }
 async function mountAdminEditor(host,workspaceKey){
- if(!host)return;host.innerHTML='<div class="ul-loading">Loading dashboard editor…</div>';
+ if(!host)return;if(!await gridTabsEnabled()){host.innerHTML='<div class="ul-error"><b>Grid tabs are disabled.</b><span>Enable Grid tabs in Admin Settings → Experimental Features to configure workspace dashboards.</span></div>';return}host.innerHTML='<div class="ul-loading">Loading dashboard editor…</div>';
  try{const model=await getModel(workspaceKey),state={model,layout:clone(model.layout),selectedId:model.layout.components[0]?.id||null,rows:new Map(),filters:{},key:workspaceKey};editors.set(host,state);renderEditor(host)}
  catch(error){host.innerHTML='<div class="ul-error"><b>Dashboard editor could not be loaded.</b><span>'+esc(error.message||error)+'</span></div>'}
 }

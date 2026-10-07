@@ -1,0 +1,8 @@
+.experimental-settings{margin-top:16px}
+.experimental-warning{display:grid;gap:4px;margin:14px 0;padding:13px 15px;border:1px solid #e5b95c;border-radius:10px;background:#fff8e6;color:#5f4614}
+.experimental-warning span{font-size:12px;line-height:1.45}
+.experimental-toggle{display:flex;align-items:flex-start;gap:11px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface-secondary);cursor:pointer}
+.experimental-toggle input{width:18px;height:18px;margin-top:2px}
+.experimental-toggle span,.experimental-toggle small{display:block}
+.experimental-toggle small{margin-top:4px;color:var(--text-secondary);line-height:1.4}
+.experimental-settings .quick{margin-top:14px;align-items:center}
